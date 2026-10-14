@@ -1,0 +1,47 @@
+@model AnalyticsListViewModel
+@{
+    ViewData["Title"] = "تحليلات وآراء";
+}
+
+<h2 class="mb-4">تحليلات وآراء</h2>
+
+<form method="get" action="/analytics" class="row g-2 mb-4">
+    <div class="col-12 col-md-9">
+        <input type="search" name="search" value="@Model.Search" class="form-control" placeholder="ابحث بمحتوى المقال أو اسم المحلل..." autocomplete="off">
+    </div>
+    <div class="col-12 col-md-3">
+        <button type="submit" class="btn btn-success w-100">بحث</button>
+    </div>
+</form>
+
+@if (Model.Articles.Any())
+{
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+        @foreach (var card in Model.Articles)
+        {
+            <div class="col">
+                <partial name="~/Views/Shared/_AnalyticalArticleCard.cshtml" model="card" />
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="text-center text-muted py-5">
+        <p>لا توجد تحليلات مطابقة.</p>
+    </div>
+}
+
+@if (Model.TotalPages > 1)
+{
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            @for (int i = 1; i <= Model.TotalPages; i++)
+            {
+                <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                    <a class="page-link" href="?page=@i&search=@Model.Search">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

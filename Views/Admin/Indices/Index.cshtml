@@ -1,0 +1,48 @@
+@model IEnumerable<HalalStocks.Models.StockIndex>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "المؤشرات";
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">المؤشرات</h2>
+    <a href="/admin/indices/create" class="btn btn-success"><i class="bi bi-plus-lg ms-1"></i>إضافة مؤشر</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>الاسم بالعربية</th>
+                    <th>الوصف</th>
+                    <th>عدد الأسهم</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-4">لا توجد مؤشرات</td></tr>
+                }
+                @foreach (var idx in Model)
+                {
+                    <tr>
+                        <td>@idx.Id</td>
+                        <td><strong>@idx.NameAr</strong></td>
+                        <td>@(idx.Description ?? "-")</td>
+                        <td><span class="badge bg-secondary">@idx.Stocks.Count</span></td>
+                        <td class="text-end">
+                            <a href="/admin/indices/edit/@idx.Id" class="btn btn-sm btn-outline-primary ms-1">تعديل</a>
+                            <form method="post" action="/admin/indices/delete/@idx.Id" class="d-inline"
+                                  onsubmit="return confirm('هل أنت متأكد من حذف هذا المؤشر؟')">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

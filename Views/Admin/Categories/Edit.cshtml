@@ -1,0 +1,24 @@
+@model CategoryFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "تعديل فئة";
+}
+<h2 class="mb-4">تعديل الفئة</h2>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/admin/categories/edit/@Model.Id">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">الاسم بالعربية *</label>
+                <input asp-for="NameAr" class="form-control" required>
+                <span asp-validation-for="NameAr" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">الوصف</label>
+                <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">تحديث</button>
+            <a href="/admin/categories" class="btn btn-outline-secondary">إلغاء</a>
+        </form>
+    </div>
+</div>

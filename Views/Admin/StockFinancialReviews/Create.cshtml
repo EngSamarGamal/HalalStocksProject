@@ -1,0 +1,126 @@
+@model HalalStocks.ViewModels.Admin.StockFinancialReviewFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة مراجعة مالية";
+}
+<div class="d-flex align-items-center mb-4 gap-3">
+    <a href="/admin/stocks/@Model.StockId/reviews" class="btn btn-outline-secondary btn-sm">← رجوع</a>
+    <div>
+        <h2 class="mb-0">إضافة مراجعة مالية</h2>
+        <small class="text-muted">@Model.StockName</small>
+    </div>
+</div>
+
+<div class="card" style="max-width:680px">
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="StockId" />
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">تاريخ المراجعة <span class="text-danger">*</span></label>
+                    <input asp-for="ReviewDate" type="date" class="form-control" required />
+                    <span asp-validation-for="ReviewDate" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">السنة المالية <span class="text-danger">*</span></label>
+                    <input asp-for="ReviewYear" type="number" class="form-control" min="2000" max="2100" required />
+                    <span asp-validation-for="ReviewYear" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">نوع القوائم المالية <span class="text-danger">*</span></label>
+                <select asp-for="FinancialStatementTypeId" asp-items="Model.StatementTypes" class="form-select" required>
+                    <option value="">— اختر النوع —</option>
+                </select>
+                <span asp-validation-for="FinancialStatementTypeId" class="text-danger small"></span>
+            </div>
+
+            <hr class="my-3" />
+            <p class="text-muted small mb-3">نسب الفحص الشرعي (اختيارية)</p>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">الدخل المحظور (%)</label>
+                    <input asp-for="ProhibitedIncomeRatio" type="number" step="0.01" min="0" max="100" class="form-control" />
+                    <span asp-validation-for="ProhibitedIncomeRatio" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">الاستثمارات غير الشرعية (%)</label>
+                    <input asp-for="NonShariahInvestmentRatio" type="number" step="0.01" min="0" max="100" class="form-control" />
+                    <span asp-validation-for="NonShariahInvestmentRatio" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">الالتزامات غير الشرعية (%)</label>
+                    <input asp-for="NonShariahObligationsRatio" type="number" step="0.01" min="0" max="100" class="form-control" />
+                    <span asp-validation-for="NonShariahObligationsRatio" class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">الأصول السائلة (%)</label>
+                    <input asp-for="LiquidAssetsRatio" type="number" step="0.01" min="0" max="100" class="form-control" />
+                    <span asp-validation-for="LiquidAssetsRatio" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">درجة النقاء</label>
+                <div class="row g-2">
+                    @{
+                        var purityOptions = new[]
+                        {
+                            (Value: 1,   Label: "نقي"),
+                            (Value: 2,   Label: "شبه نقي"),
+                            (Value: 128, Label: "شرعي مختلط A"),
+                            (Value: 32,  Label: "شرعي مختلط B"),
+                            (Value: 256, Label: "شرعي مختلط C"),
+                            (Value: 4,   Label: "غير شرعي دخل محظور"),
+                            (Value: 8,   Label: "غير شرعي قروض"),
+                            (Value: 16,  Label: "غير شرعي استثمارات ربوية"),
+                            (Value: 64,  Label: "غير شرعي نشاط")
+                        };
+                    }
+                    @foreach (var opt in purityOptions)
+                    {
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox"
+                                       name="SelectedPurityGrades" value="@opt.Value"
+                                       id="purity_@opt.Value"
+                                       @(Model.SelectedPurityGrades.Contains(opt.Value) ? "checked" : "")>
+                                <label class="form-check-label" for="purity_@opt.Value">@opt.Label</label>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <hr class="my-3" />
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">موقف السهم <span class="text-danger">*</span></label>
+                <select asp-for="ShariahStatus" class="form-select" required>
+                    <option value="">— اختر الموقف —</option>
+                    <option value="Halal">متوافق مع الشريعة</option>
+                    <option value="MustPurify">غير متوافق مع الشريعة</option>
+                    <option value="StatusBlocked">تم حجب إعلان الموقف الشرعي للسهم</option>
+                </select>
+                <span asp-validation-for="ShariahStatus" class="text-danger small"></span>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold">ملاحظات</label>
+                <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold">ملف PDF للمراجعة</label>
+                <input asp-for="PdfFile" type="file" class="form-control" accept=".pdf">
+                <small class="text-muted">اختياري — PDF فقط، الحد الأقصى 30 ميجابايت</small>
+            </div>
+
+            <button type="submit" class="btn btn-success px-4">حفظ المراجعة</button>
+        </form>
+    </div>
+</div>

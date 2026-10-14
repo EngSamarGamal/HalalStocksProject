@@ -1,0 +1,142 @@
+@model HalalStocks.ViewModels.Admin.CalculatorInstructionFormViewModel
+@using HalalStocks.Models
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "الإرشادات";
+
+    var calculators = new[]
+    {
+        (Value: CalculatorType.CapitalPurification,  Label: "حاسبة تطهير رأس المال",        Url: "/capital-purification"),
+        (Value: CalculatorType.DividendPurification, Label: "حاسبة تطهير توزيعات الأرباح", Url: "/dividend-purification"),
+        (Value: CalculatorType.HomeAlerts,           Label: "تنبيهات الصفحة الرئيسية",      Url: "/")
+    };
+    var current = calculators.First(c => c.Value == Model.Type);
+}
+
+<h2 class="mb-4">الإرشادات</h2>
+
+<div class="card" style="max-width:900px">
+    <div class="card-header fw-bold bg-dark text-white">
+        <i class="bi bi-info-circle ms-2"></i>الإرشادات والمحتوى النصي
+    </div>
+    <div class="card-body">
+        <p class="text-muted">
+            اختر القسم ثم اكتب النص الذي سيظهر فيه.
+        </p>
+
+        <div class="mb-4">
+            <label for="calculatorSelect" class="form-label fw-semibold">القسم</label>
+            <select id="calculatorSelect" class="form-select">
+                @foreach (var c in calculators)
+                {
+                    <option value="@c.Value" selected="@(c.Value == Model.Type)">@c.Label</option>
+                }
+            </select>
+        </div>
+
+        <form method="post" id="instructionsForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Type" />
+            <input type="hidden" asp-for="ContentHtml" />
+            <span asp-validation-for="Type" class="text-danger small d-block mb-2"></span>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">نص الإرشادات</label>
+                <div id="uploadError" class="alert alert-danger py-2 d-none"></div>
+                <div id="quill-editor" style="height:300px; font-family:'Tajawal',sans-serif; font-size:1rem;"></div>
+                <span asp-validation-for="ContentHtml" class="text-danger small"></span>
+                <small class="text-muted d-block mt-2">لو تركت المحرر فارغاً فلن تظهر أي إرشادات على شاشة الحاسبة.</small>
+            </div>
+
+            <div class="d-flex gap-2 align-items-center">
+                <button type="submit" class="btn btn-success px-4">حفظ الإرشادات</button>
+                <a href="@current.Url" target="_blank" class="btn btn-outline-secondary">
+                    عرض الشاشة <i class="bi bi-box-arrow-up-left"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script>
+    // Switching calculator reloads the page so the editor opens with that calculator's saved text.
+    document.getElementById('calculatorSelect').addEventListener('change', function () {
+        window.location.href = '/admin/instructions?type=' + encodeURIComponent(this.value);
+    });
+
+    const quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        direction: 'rtl',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'header': [2, 3, false] }],
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                [{ 'align': [] }],
+                ['link', 'image'],
+                ['clean']
+            ]
+        }
+    });
+
+    // Images are uploaded to the server and inserted by URL. Quill's default would embed base64,
+    // which bloats the saved HTML — so the button is overridden, and pasted/dropped base64 images are dropped.
+    const uploadError = document.getElementById('uploadError');
+    function showUploadError(msg) { uploadError.textContent = msg || ''; uploadError.classList.toggle('d-none', !msg); }
+
+    quill.getModule('toolbar').addHandler('image', function () {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/png,image/jpeg,image/webp';
+        input.addEventListener('change', async function () {
+            const file = input.files[0];
+            if (!file) return;
+            showUploadError('');
+            if (file.size > 5 * 1024 * 1024) { showUploadError('حجم الصورة أكبر من 5 ميجا.'); return; }
+
+            const data = new FormData();
+            data.append('file', file);
+            try {
+                const res = await fetch('/admin/instructions/upload-image', {
+                    method: 'POST',
+                    headers: { 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value },
+                    body: data
+                });
+                const json = await res.json().catch(function () { return null; });
+                if (!res.ok || !json || !json.url) { showUploadError((json && json.error) || 'تعذّر رفع الصورة.'); return; }
+
+                // No caret yet (editor never focused) -> append at the end instead of failing.
+                const range = quill.getSelection(true);
+                const index = range ? range.index : Math.max(quill.getLength() - 1, 0);
+                quill.insertEmbed(index, 'image', json.url, 'user');
+                quill.setSelection(index + 1, 0, 'silent');
+            } catch (e) {
+                showUploadError('تعذّر رفع الصورة. تحقق من الاتصال وحاول مرة أخرى.');
+            }
+        });
+        input.click();
+    });
+
+    const Delta = Quill.import('delta');
+    quill.clipboard.addMatcher('IMG', function (node, delta) {
+        const src = node.getAttribute('src') || '';
+        if (src.startsWith('data:')) {
+            showUploadError('لا يمكن لصق الصور مباشرة، استخدم زر إدراج الصورة في شريط الأدوات.');
+            return new Delta();
+        }
+        return delta;
+    });
+
+    const field = document.getElementById('ContentHtml');
+    if (field.value) quill.clipboard.dangerouslyPasteHTML(field.value);
+
+    function syncField() {
+        field.value = quill.root.innerHTML.trim() === '<p><br></p>' ? '' : quill.getSemanticHTML();
+    }
+    quill.on('text-change', syncField);
+    document.getElementById('instructionsForm').addEventListener('submit', syncField);
+</script>
+}

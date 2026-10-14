@@ -1,0 +1,23 @@
+@model HalalStocks.Models.FatwaQuestion
+@* Shared by /fatawa and the home page "أهم الأسئلة" strip. The answer shows as a clamped preview;
+   wwwroot/js/fatwa.js reveals the "قراءة الإجابة كاملة" button only when the answer actually overflows. *@
+<article class="fatwa-card" id="q-@Model.Id">
+    <div class="fatwa-q">
+        <span class="fatwa-badge fatwa-badge-q" aria-hidden="true">س</span>
+        <h3 class="fatwa-question">@Model.Question</h3>
+    </div>
+    <div class="fatwa-a">
+        <span class="fatwa-badge fatwa-badge-a" aria-hidden="true">ج</span>
+        <div class="fatwa-answer-wrap">
+            <div class="fatwa-answer">@Html.Raw(Model.Answer)</div>
+            <button type="button" class="fatwa-toggle d-none" aria-expanded="false">
+                <span class="fatwa-toggle-more">قراءة الإجابة كاملة <i class="bi bi-chevron-down"></i></span>
+                <span class="fatwa-toggle-less">إخفاء <i class="bi bi-chevron-up"></i></span>
+            </button>
+        </div>
+    </div>
+    @if (Model.PublishedAt.HasValue)
+    {
+        <div class="fatwa-meta"><i class="bi bi-calendar3 ms-1"></i>@Model.PublishedAt.Value.ToString("dd/MM/yyyy")</div>
+    }
+</article>

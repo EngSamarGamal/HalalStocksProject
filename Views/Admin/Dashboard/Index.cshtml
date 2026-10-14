@@ -1,0 +1,129 @@
+@model DashboardViewModel
+@using HalalStocks.ViewModels.Admin
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "لوحة التحكم";
+}
+<h2 class="mb-4">لوحة التحكم</h2>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+<div class="row g-4 mb-5">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card text-white bg-success">
+            <div class="card-body text-center">
+                <h2>@Model.TotalStocks</h2>
+                <p class="mb-0">إجمالي الأسهم</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body text-center">
+                <h2>@Model.TotalCategories</h2>
+                <p class="mb-0">الفئات</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card text-white bg-warning text-dark">
+            <div class="card-body text-center">
+                <h2>@Model.TotalArticles</h2>
+                <p class="mb-0">المقالات</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card text-white bg-secondary">
+            <div class="card-body text-center">
+                <h2>@Model.TotalUsers</h2>
+                <p class="mb-0">المستخدمون</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card text-white bg-info">
+            <div class="card-body text-center">
+                <h2>@Model.TotalZakatRecords</h2>
+                <p class="mb-0">حسابات الزكاة</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <a href="/admin/portfolio-requests?status=0" class="text-decoration-none">
+            <div class="card text-white bg-dark">
+                <div class="card-body text-center">
+                    <h2>@Model.NewPortfolioRequests</h2>
+                    <p class="mb-0">طلبات المحافظ الجديدة</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Gold Price Card -->
+<div class="card shadow-sm mb-5">
+    <div class="card-header fw-bold bg-warning text-dark d-flex align-items-center justify-content-between">
+        <span>سعر الذهب عيار 21</span>
+        <div class="d-flex gap-2">
+            <a href="/admin/gold-prices" class="btn btn-sm btn-dark fw-bold">إدارة الأسعار</a>
+            <form method="post" action="/admin/gold-price/refresh" class="mb-0">
+                @Html.AntiForgeryToken()
+                <button class="btn btn-sm btn-outline-dark fw-bold">جلب من API</button>
+            </form>
+        </div>
+    </div>
+    <div class="card-body">
+        @if (Model.GoldPrice21K.HasValue)
+        {
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <div class="text-muted small">السعر الحالي</div>
+                    <div class="fw-bold fs-5">@Model.GoldPrice21K.Value.ToString("N2") ج.م / جرام</div>
+                </div>
+                <div class="col-auto">
+                    <div class="text-muted small">تاريخ السعر</div>
+                    <div class="fw-semibold">@Model.GoldPriceDate?.ToString("yyyy/MM/dd")</div>
+                </div>
+                <div class="col-auto">
+                    <div class="text-muted small">المصدر</div>
+                    <div>
+                        <span class="badge @(Model.GoldPriceSource == "Manual" ? "bg-success" : "bg-secondary")">
+                            @(Model.GoldPriceSource == "Manual" ? "يدوي" : "API")
+                        </span>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="text-muted small">النصاب (85 جرام)</div>
+                    <div class="fw-bold">@((Model.GoldPrice21K.Value * 85).ToString("N2")) ج.م</div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-muted">
+                لا يوجد سعر مسجّل بعد —
+                <a href="/admin/gold-prices" class="fw-bold">أضف سعراً يدوياً</a>
+                أو اضغط "جلب من API".
+            </div>
+        }
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-auto"><a href="/admin/stocks/create" class="btn btn-success">+ إضافة سهم</a></div>
+    <div class="col-auto"><a href="/admin/categories/create" class="btn btn-primary">+ إضافة فئة</a></div>
+    <div class="col-auto"><a href="/admin/articles/create" class="btn btn-warning">+ إضافة مقال</a></div>
+    <div class="col-auto"><a href="/admin/users/create" class="btn btn-secondary">+ إضافة مستخدم</a></div>
+</div>

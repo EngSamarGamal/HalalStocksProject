@@ -1,0 +1,417 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery _antiforgery
+@{
+    ViewData["Title"] = "حاسبة تطهير الدخل المحظور";
+    var _csrfToken = _antiforgery.GetAndStoreTokens(Context).RequestToken!;
+}
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <h2 class="mb-0">حاسبة تطهير الدخل المحظور</h2>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <a href="/calculations" class="btn btn-outline-secondary btn-sm">سجل الحسابات ←</a>
+    }
+</div>
+
+<!-- Add Stock Form -->
+<div class="card mb-4 shadow-sm">
+    <div class="card-header bg-warning text-dark fw-bold">
+        إضافة سهم للحاسبة
+    </div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">السهم</label>
+                <select id="stockSelect" class="form-select" style="width:100%">
+                    <option value="">-- اختر السهم --</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">عدد الأسهم</label>
+                <input type="number" id="stockQty" class="form-control" placeholder="مثال: 100" min="1" step="1">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">قيمة الشراء (ج.م)</label>
+                <input type="number" id="buyValue" class="form-control" placeholder="50000" min="0" step="any">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">قيمة البيع (ج.م)</label>
+                <input type="number" id="sellValue" class="form-control" placeholder="65000" min="0" step="any">
+            </div>
+            <div class="col-md-3">
+                <button id="addBtn" class="btn btn-success w-100">إضافة للحاسبة</button>
+                <button id="cancelEditBtn" class="btn btn-outline-secondary w-100 mt-1 d-none">إلغاء التعديل</button>
+            </div>
+            <div class="col-12"><hr class="my-1"><small class="text-muted">بيانات إضافية — اختياري</small></div>
+            <div class="col-md-3">
+                <label class="form-label text-muted">تاريخ الشراء</label>
+                <input type="date" id="buyDate" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted">رقم فاتورة الشراء</label>
+                <input type="text" id="buyInvoice" class="form-control" placeholder="اختياري" dir="ltr">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted">تاريخ البيع</label>
+                <input type="date" id="sellDate" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted">رقم فاتورة البيع</label>
+                <input type="text" id="sellInvoice" class="form-control" placeholder="اختياري" dir="ltr">
+            </div>
+            <div class="col-12">
+                <label class="form-label text-muted">ملاحظات</label>
+                <input type="text" id="entryNotes" class="form-control" placeholder="اختياري">
+            </div>
+        </div>
+        <div id="formError" class="alert alert-danger mt-3 d-none"></div>
+    </div>
+</div>
+
+<!-- Stock Table -->
+<div id="stockTableWrap" class="d-none mb-5">
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+            <thead class="table-success">
+                <tr>
+                    <th>رمز السهم</th>
+                    <th>اسم السهم</th>
+                    <th>عدد الأسهم</th>
+                    <th>قيمة الشراء (ج.م)</th>
+                    <th>قيمة البيع (ج.م)</th>
+                    <th>الربح (ج.م)</th>
+                    <th>نسبة التطهير</th>
+                    <th class="fw-bold text-success">مبلغ التطهير (ج.م)</th>
+                    <th>ملاحظات</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="stockTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="emptyState" class="text-center text-muted py-5">
+    <div style="font-size:3rem">🧮</div>
+    <p class="mt-2">لم تُضف أي أسهم بعد. ابدأ بإضافة سهم من الأعلى.</p>
+</div>
+
+<!-- Sticky Summary Bar -->
+<div id="summaryBar" class="d-none" style="position:fixed;bottom:0;right:0;left:0;z-index:1050;background:#fff;border-top:2px solid #198754;box-shadow:0 -2px 10px rgba(0,0,0,0.15);">
+    <div class="container-fluid px-2 py-2">
+        <div class="row g-0 text-center mb-1">
+            <div class="col-4 px-1" style="border-left:1px solid #dee2e6;">
+                <div class="text-muted" style="font-size:0.65rem;">عدد الأسهم</div>
+                <div class="fw-bold" style="font-size:0.9rem;" id="sumCount">0</div>
+            </div>
+            <div class="col-4 px-1" style="border-left:1px solid #dee2e6;">
+                <div class="text-muted" style="font-size:0.65rem;">إجمالي الأرباح</div>
+                <div class="fw-bold" style="font-size:0.85rem;word-break:break-all;"><span id="sumProfit">0</span> <span style="font-size:0.7rem;">ج.م</span></div>
+            </div>
+            <div class="col-4 px-1">
+                <div class="text-muted" style="font-size:0.65rem;">إجمالي التطهير</div>
+                <div class="fw-bold text-success" style="font-size:0.85rem;word-break:break-all;"><span id="sumPurification">0</span> <span style="font-size:0.7rem;">ج.م</span></div>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button id="pdfBtn" class="btn btn-success btn-sm flex-grow-1 py-1" style="font-size:0.85rem;">تنزيل PDF</button>
+            <button id="saveBtn" class="btn btn-outline-success btn-sm flex-grow-1 py-1" style="font-size:0.85rem;">💾 حفظ الحساب</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.rtl.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+        var stocks   = [];
+        var entries  = [];
+        var editingId = null;
+        var csrfToken = '@_csrfToken';
+
+        $(function () {
+            $('#stockSelect').select2({
+                theme: 'bootstrap-5',
+                placeholder: '-- اختر السهم --',
+                allowClear: true,
+                language: {
+                    noResults:  function () { return 'لا توجد نتائج'; },
+                    searching:  function () { return 'جاري البحث...'; }
+                }
+            });
+        });
+
+        fetch('/api/stocks/purifiable')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                stocks = data;
+                var sel = document.getElementById('stockSelect');
+                data.forEach(function (s) {
+                    var opt = new Option(s.ticker + ' — ' + s.nameAr + ' (' + s.purificationRatio + '%)', s.ticker, false, false);
+                    sel.appendChild(opt);
+                });
+                $(sel).trigger('change');
+            })
+            .catch(function () { showError('تعذّر تحميل قائمة الأسهم. يرجى تحديث الصفحة.'); });
+
+        document.getElementById('addBtn').addEventListener('click', function () {
+            document.getElementById('formError').classList.add('d-none');
+            var ticker     = document.getElementById('stockSelect').value;
+            var buy        = parseFloat(document.getElementById('buyValue').value);
+            var sell       = parseFloat(document.getElementById('sellValue').value);
+            var qty        = parseInt(document.getElementById('stockQty').value) || null;
+            var buyDate    = document.getElementById('buyDate').value    || null;
+            var buyInvoice = document.getElementById('buyInvoice').value || null;
+            var sellDate   = document.getElementById('sellDate').value   || null;
+            var sellInvoice= document.getElementById('sellInvoice').value|| null;
+            var notes      = document.getElementById('entryNotes').value || null;
+
+            if (!ticker)                  { showError('يرجى اختيار السهم.');                              return; }
+            if (isNaN(buy)  || buy  <= 0) { showError('يرجى إدخال إجمالي قيمة الشراء.');                 return; }
+            if (isNaN(sell) || sell <= 0) { showError('يرجى إدخال إجمالي قيمة البيع.');                  return; }
+            var stock = null;
+            for (var i = 0; i < stocks.length; i++) { if (stocks[i].ticker === ticker) { stock = stocks[i]; break; } }
+            if (!stock) { showError('السهم المختار غير موجود.'); return; }
+
+            var profit       = sell - buy;
+            var purification = profit > 0 ? profit * (stock.purificationRatio / 100) : 0;
+
+            if (editingId !== null) {
+                for (var j = 0; j < entries.length; j++) {
+                    if (entries[j].id === editingId) {
+                        entries[j] = { id: editingId, ticker: stock.ticker, nameAr: stock.nameAr, buy: buy, sell: sell, profit: profit, ratio: stock.purificationRatio, purification: purification, stockQuantity: qty, buyDate: buyDate, buyInvoiceNumber: buyInvoice, sellDate: sellDate, sellInvoiceNumber: sellInvoice, notes: notes };
+                        break;
+                    }
+                }
+                exitEditMode();
+            } else {
+                entries.push({ id: Date.now(), ticker: stock.ticker, nameAr: stock.nameAr, buy: buy, sell: sell, profit: profit, ratio: stock.purificationRatio, purification: purification, stockQuantity: qty, buyDate: buyDate, buyInvoiceNumber: buyInvoice, sellDate: sellDate, sellInvoiceNumber: sellInvoice, notes: notes });
+            }
+
+            renderTable();
+            updateSummary();
+            resetForm();
+        });
+
+        document.getElementById('cancelEditBtn').addEventListener('click', function () {
+            exitEditMode();
+            resetForm();
+        });
+
+        function exitEditMode() {
+            editingId = null;
+            document.getElementById('addBtn').textContent = 'إضافة للحاسبة';
+            document.getElementById('addBtn').className   = 'btn btn-success w-100';
+            document.getElementById('cancelEditBtn').classList.add('d-none');
+        }
+
+        function resetForm() {
+            $('#stockSelect').val('').trigger('change');
+            document.getElementById('buyValue').value   = '';
+            document.getElementById('sellValue').value  = '';
+            document.getElementById('stockQty').value   = '';
+            document.getElementById('buyDate').value    = '';
+            document.getElementById('buyInvoice').value = '';
+            document.getElementById('sellDate').value   = '';
+            document.getElementById('sellInvoice').value= '';
+            document.getElementById('entryNotes').value = '';
+            document.getElementById('formError').classList.add('d-none');
+        }
+
+        function showError(msg) {
+            var el = document.getElementById('formError');
+            el.textContent = msg;
+            el.classList.remove('d-none');
+        }
+
+        function formatNum(n) {
+            return n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function renderTable() {
+            var tbody = document.getElementById('stockTableBody');
+            var wrap  = document.getElementById('stockTableWrap');
+            var empty = document.getElementById('emptyState');
+            tbody.innerHTML = '';
+
+            if (entries.length === 0) {
+                wrap.classList.add('d-none');
+                empty.style.display = '';
+                return;
+            }
+            empty.style.display = 'none';
+            wrap.classList.remove('d-none');
+
+            entries.forEach(function (e) {
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td><strong>' + e.ticker + '</strong></td>' +
+                    '<td>' + e.nameAr + '</td>' +
+                    '<td class="text-center">' + (e.stockQuantity || '—') + '</td>' +
+                    '<td>' + formatNum(e.buy) + '</td>' +
+                    '<td>' + formatNum(e.sell) + '</td>' +
+                    '<td>' + formatNum(e.profit) + '</td>' +
+                    '<td>' + e.ratio + '%</td>' +
+                    '<td class="fw-bold text-success">' + formatNum(e.purification) + '</td>' +
+                    '<td class="text-muted small">' + (e.notes || '—') + '</td>' +
+                    '<td class="text-nowrap">' +
+                        '<button class="btn btn-sm btn-outline-warning ms-1" onclick="editEntry(' + e.id + ')">تعديل</button>' +
+                        '<button class="btn btn-sm btn-outline-danger"       onclick="removeEntry(' + e.id + ')">حذف</button>' +
+                    '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function editEntry(id) {
+            var e = null;
+            for (var i = 0; i < entries.length; i++) { if (entries[i].id === id) { e = entries[i]; break; } }
+            if (!e) return;
+            $('#stockSelect').val(e.ticker).trigger('change');
+            document.getElementById('buyValue').value   = e.buy;
+            document.getElementById('sellValue').value  = e.sell;
+            document.getElementById('stockQty').value   = e.stockQuantity || '';
+            document.getElementById('buyDate').value    = e.buyDate    || '';
+            document.getElementById('buyInvoice').value = e.buyInvoiceNumber  || '';
+            document.getElementById('sellDate').value   = e.sellDate   || '';
+            document.getElementById('sellInvoice').value= e.sellInvoiceNumber || '';
+            document.getElementById('entryNotes').value = e.notes || '';
+            document.getElementById('formError').classList.add('d-none');
+            editingId = id;
+            document.getElementById('addBtn').textContent = 'حفظ التعديل';
+            document.getElementById('addBtn').className   = 'btn btn-warning w-100';
+            document.getElementById('cancelEditBtn').classList.remove('d-none');
+            document.getElementById('addBtn').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function removeEntry(id) {
+            if (editingId === id) exitEditMode();
+            entries = entries.filter(function (e) { return e.id !== id; });
+            renderTable();
+            updateSummary();
+        }
+
+        function updateSummary() {
+            var bar = document.getElementById('summaryBar');
+            if (entries.length === 0) {
+                bar.classList.add('d-none');
+                document.querySelector('main').style.paddingBottom = '';
+                return;
+            }
+            bar.classList.remove('d-none');
+            document.querySelector('main').style.paddingBottom = '100px';
+            var totalProfit       = entries.reduce(function (s, e) { return s + e.profit; }, 0);
+            var totalPurification = entries.reduce(function (s, e) { return s + e.purification; }, 0);
+            document.getElementById('sumCount').textContent        = entries.length;
+            document.getElementById('sumProfit').textContent       = formatNum(totalProfit);
+            document.getElementById('sumPurification').textContent = formatNum(totalPurification);
+        }
+
+        document.getElementById('pdfBtn').addEventListener('click', function () {
+            if (entries.length === 0) return;
+
+            var win = window.open('', '_blank');
+            if (!win) {
+                alert('يرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم حاول مرة أخرى.');
+                return;
+            }
+
+            var today             = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+            var totalProfit       = entries.reduce(function (s, e) { return s + e.profit; }, 0);
+            var totalPurification = entries.reduce(function (s, e) { return s + e.purification; }, 0);
+
+            var rows = '';
+            entries.forEach(function (e) {
+                rows +=
+                    '<tr>' +
+                    '<td>' + e.ticker + '</td>' +
+                    '<td>' + e.nameAr + '</td>' +
+                    '<td>' + (e.stockQuantity || '—') + '</td>' +
+                    '<td>' + formatNum(e.buy) + '</td>' +
+                    '<td>' + formatNum(e.sell) + '</td>' +
+                    '<td>' + formatNum(e.profit) + '</td>' +
+                    '<td>' + e.ratio + '%</td>' +
+                    '<td style="color:#198754;font-weight:bold">' + formatNum(e.purification) + '</td>' +
+                    '<td>' + (e.buyDate    || '—') + '</td>' +
+                    '<td>' + (e.buyInvoiceNumber || '—') + '</td>' +
+                    '<td>' + (e.sellDate   || '—') + '</td>' +
+                    '<td>' + (e.sellInvoiceNumber || '—') + '</td>' +
+                    '<td style="color:#555">' + (e.notes || '—') + '</td>' +
+                    '</tr>';
+            });
+
+            var origin = window.location.origin;
+            // Build the CSS at-rule at runtime to avoid Razor processing issues
+            var pageRule = String.fromCharCode(64) + 'page{size:A4 landscape;margin:8mm}';
+
+            var doc = win.document;
+            doc.open();
+            doc.write('<!DOCTYPE html>');
+            doc.write('<html dir="rtl" lang="ar">');
+            doc.write('<head>');
+            doc.write('<meta charset="UTF-8">');
+            doc.write('<title>تقرير التطهير</title>');
+            doc.write('<style>');
+            doc.write('html,body{margin:0;padding:0;}');
+            doc.write('body{font-family:Arial,Tahoma,sans-serif;direction:rtl;padding:8mm;font-size:9pt;color:#000;}');
+            doc.write('.hdr{text-align:center;margin-bottom:8pt;}');
+            doc.write('.logo{width:42pt;height:42pt;border-radius:50%;border:1.5pt solid #198754;object-fit:cover;}');
+            doc.write('.site{font-size:13pt;font-weight:bold;color:#198754;margin:2pt 0 1pt;}');
+            doc.write('.ttl{font-size:10pt;font-weight:bold;}');
+            doc.write('.dt{font-size:8pt;color:#666;margin-top:1pt;}');
+            doc.write('table{width:100%;border-collapse:collapse;margin-top:7pt;table-layout:fixed;}');
+            doc.write('th{background:#198754;color:#fff;padding:5pt 3pt;border:0.5pt solid #999;text-align:center;font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}');
+            doc.write('td{padding:4pt 3pt;border:0.5pt solid #ccc;text-align:center;font-size:8pt;}');
+            doc.write('tfoot td{background:#f0faf4;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;}');
+            doc.write('.note{font-size:7pt;color:#555;border-top:0.5pt solid #ddd;padding-top:5pt;margin-top:6pt;}');
+            doc.write(pageRule);
+            doc.write('</style>');
+            doc.write('</head>');
+            doc.write('<body>');
+            doc.write('<div class="hdr">');
+            doc.write('<img src="' + origin + '/logo3.jpeg" class="logo" alt="كاشف">');
+            doc.write('<div class="site">كاشف</div>');
+            doc.write('<div class="ttl">تقرير حاسبة تطهير الدخل المحظور</div>');
+            doc.write('<div class="dt">التاريخ: ' + today + '</div>');
+            doc.write('</div>');
+            doc.write('<table>');
+            doc.write('<colgroup>');
+            doc.write('<col style="width:6%"><col style="width:13%"><col style="width:5%"><col style="width:8%"><col style="width:8%">');
+            doc.write('<col style="width:8%"><col style="width:6%"><col style="width:8%"><col style="width:8%">');
+            doc.write('<col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%">');
+            doc.write('</colgroup>');
+            doc.write('<thead><tr>');
+            doc.write('<th>رمز السهم</th><th>اسم السهم</th><th>عدد</th>');
+            doc.write('<th>الشراء (ج.م)</th><th>البيع (ج.م)</th><th>الربح (ج.م)</th><th>النسبة</th><th>التطهير (ج.م)</th>');
+            doc.write('<th>ت. الشراء</th><th>فاتورة الشراء</th><th>ت. البيع</th><th>فاتورة البيع</th><th>ملاحظات</th>');
+            doc.write('</tr></thead>');
+            doc.write('<tbody>' + rows + '</tbody>');
+            doc.write('<tfoot><tr>');
+            doc.write('<td colspan="5" style="text-align:right;padding-right:5pt">الإجمالي</td>');
+            doc.write('<td>' + formatNum(totalProfit) + '</td>');
+            doc.write('<td></td>');
+            doc.write('<td style="color:#198754">' + formatNum(totalPurification) + '</td>');
+            doc.write('<td colspan="5"></td>');
+            doc.write('</tr></tfoot>');
+            doc.write('</table>');
+            doc.write('<p class="note">ملاحظة: يُنصح بصرف مبلغ التطهير في وجوه الخير والصدقات</p>');
+            doc.close();
+            win.focus();
+            setTimeout(function () { win.print(); }, 400);
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', function () {
+            if (entries.length === 0) return;
+            var title = prompt('اختر عنواناً للحساب (اختياري):') ;
+            if (title === null) return; // cancelled
+            fetch('/api/calculations/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
+                body: JSON.stringify({ title: title, entries: entries.map(function(e){ return { ticker: e.ticker, nameAr: e.nameAr, buy: e.buy, sell: e.sell, profit: e.profit, ratio: e.ratio, purification: e.purification, stockQuantity: e.stockQuantity, buyDate: e.buyDate, buyInvoiceNumber: e.buyInvoiceNumber, sellDate: e.sellDate, sellInvoiceNumber: e.sellInvoiceNumber, notes: e.notes }; }) })
+            }).then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+              .then(function(data){ window.location.href = '/calculations/' + data.id; })
+              .catch(function(){ alert('حدث خطأ أثناء الحفظ، يرجى تسجيل الدخول أولاً.'); });
+        });
+    </script>
+}

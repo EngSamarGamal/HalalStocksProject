@@ -1,0 +1,126 @@
+@model HalalStocks.ViewModels.FatwaIndexViewModel
+@{
+    ViewData["Title"] = "فتاوى المال";
+    ViewData["Description"] = "فتاوى المال من كاشف — سؤال وجواب في فقه المعاملات المالية الإسلامية، وأجوبة موثّقة عن أحكام البيع والشراء والاستثمار والأسهم.";
+    var registerUrl = "/account/register?returnUrl=%2Ffatawa%3Fask%3D1";
+    var askHasErrors = !ViewData.ModelState.IsValid;
+}
+
+<section class="fatwa-hero mb-4">
+    <div class="fatwa-hero-kicker"><i class="bi bi-journal-richtext ms-1"></i>فتاوى المال</div>
+    <h1>سؤال وجواب في فقه المعاملات المالية الإسلامية</h1>
+    <p>اطرح سؤالك من خلال فتح حساب مجاني في كاشف</p>
+    @if (Model.IsAuthenticated)
+    {
+        <a href="#ask" class="btn btn-fatwa-ask">اطرح سؤالك</a>
+    }
+    else
+    {
+        <a href="@registerUrl" class="btn btn-fatwa-ask">اطرح سؤالك</a>
+        <div class="mt-3 small opacity-75">لديك حساب؟ <a href="/account/login?returnUrl=%2Ffatawa%3Fask%3D1" class="text-white fw-bold">تسجيل الدخول</a></div>
+    }
+</section>
+
+@if (TempData["FatwaSuccess"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle ms-2"></i>@TempData["FatwaSuccess"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="إغلاق"></button>
+    </div>
+}
+
+<form method="get" action="/fatawa" class="row g-2 mb-4">
+    <div class="col-9 col-md-10">
+        <input type="search" name="search" value="@Model.Search" class="form-control" placeholder="ابحث في الأسئلة والأجوبة..." autocomplete="off">
+    </div>
+    <div class="col-3 col-md-2">
+        <button type="submit" class="btn btn-success w-100">بحث</button>
+    </div>
+</form>
+
+@if (!Model.Questions.Any())
+{
+    <div class="text-center text-muted py-5">
+        <div class="fs-1 mb-2"><i class="bi bi-chat-square-text"></i></div>
+        <p class="fs-5 mb-0">@(string.IsNullOrWhiteSpace(Model.Search) ? "لم يتم نشر أي أسئلة بعد، كن أول من يطرح سؤالاً." : "لا توجد نتائج مطابقة لبحثك.")</p>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-column gap-3" id="fatwaList">
+        <partial name="~/Views/Fatawa/_FatwaList.cshtml" model="Model.Questions" />
+    </div>
+
+    @if (Model.CurrentPage < Model.TotalPages)
+    {
+        <div class="text-center mt-4">
+            <button type="button" id="fatwaMore" class="btn btn-outline-success px-5"
+                    data-search="@Model.Search" data-next-page="@(Model.CurrentPage + 1)">عرض المزيد</button>
+            <noscript><a class="btn btn-outline-success px-5" href="/fatawa?search=@Uri.EscapeDataString(Model.Search ?? "")&page=@(Model.CurrentPage + 1)">عرض المزيد</a></noscript>
+        </div>
+    }
+}
+
+<section id="ask" class="fatwa-ask-box mt-5">
+    <h2 class="h4 fw-bold mb-1" style="color:#1a3c34"><i class="bi bi-pencil-square ms-2"></i>اطرح سؤالك</h2>
+    <p class="text-muted mb-3">اكتب سؤالك في المعاملات المالية بوضوح. لن يظهر سؤالك للعامة إلا بعد مراجعته والإجابة عليه ونشره.</p>
+    @if (Model.IsAuthenticated)
+    {
+        <form method="post" action="/fatawa/ask" novalidate>
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <textarea name="Ask.Question" rows="5" maxlength="2000" required
+                          class="form-control @(askHasErrors ? "is-invalid" : "")"
+                          placeholder="مثال: هل يجوز شراء الذهب بالتقسيط؟">@Model.Ask.Question</textarea>
+                <span class="invalid-feedback d-block">@Html.ValidationMessage("Ask.Question")</span>
+            </div>
+            <button type="submit" class="btn btn-success px-4 fw-bold">إرسال السؤال</button>
+        </form>
+    }
+    else
+    {
+        <div class="text-center py-2">
+            <p class="mb-3">طرح الأسئلة متاح للأعضاء المسجّلين — والتسجيل مجاني تماماً.</p>
+            <a href="@registerUrl" class="btn btn-success px-4 fw-bold">إنشاء حساب مجاني</a>
+            <a href="/account/login?returnUrl=%2Ffatawa%3Fask%3D1" class="btn btn-outline-secondary px-4">تسجيل الدخول</a>
+        </div>
+    }
+</section>
+
+@section Scripts {
+<script src="~/js/fatwa.js" asp-append-version="true"></script>
+<script>
+    (function () {
+        var btn = document.getElementById('fatwaMore');
+        if (!btn) return;
+        btn.addEventListener('click', async function () {
+            btn.disabled = true;
+            try {
+                var url = '/fatawa/more?page=' + btn.dataset.nextPage + '&search=' + encodeURIComponent(btn.dataset.search || '');
+                var res = await fetch(url);
+                if (!res.ok) throw new Error();
+                var html = await res.text();
+                document.getElementById('fatwaList').insertAdjacentHTML('beforeend', html);
+                window.HalalStocks.initFatwaCards(document.getElementById('fatwaList'));
+                btn.dataset.nextPage = (parseInt(btn.dataset.nextPage, 10) + 1).toString();
+                if (res.headers.get('X-Has-More') === '1') btn.disabled = false; else btn.parentElement.remove();
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = 'تعذّر التحميل، حاول مرة أخرى';
+            }
+        });
+    })();
+</script>
+<script>
+    // Arriving from register/login with ?ask=1 (or after a failed submit) lands on the form.
+    (function () {
+        var hasErrors = @(askHasErrors ? "true" : "false");
+        if (hasErrors || new URLSearchParams(location.search).get('ask') === '1') {
+            var box = document.getElementById('ask');
+            if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            var ta = box && box.querySelector('textarea');
+            if (ta) ta.focus({ preventScroll: true });
+        }
+    })();
+</script>
+}

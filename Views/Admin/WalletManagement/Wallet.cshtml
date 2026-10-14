@@ -1,0 +1,630 @@
+@model HalalStocks.ViewModels.WalletItemFormViewModel
+@using HalalStocks.Models
+@{
+    Layout = "_WalletManagementLayout";
+    ViewData["Title"] = "سجل المحفظة";
+    var userId = (string)ViewBag.TargetUserId;
+    var basePath = $"/admin/wallet-management/{userId}";
+}
+
+<h3 class="mt-2 mb-3">المستشار الآلي</h3>
+
+<partial name="~/Views/Admin/WalletManagement/_ManagementNavTabs.cshtml" model="@("wallet")" />
+
+@{
+    var wallet = (InvestmentWallet?)ViewBag.Wallet;
+    var summary = ViewBag.Summary is ValueTuple<decimal, decimal, decimal, decimal, decimal> tuple
+        ? tuple
+        : (0m, 0m, 0m, 0m, 0m);
+    var totalInvested = summary.Item1;
+    var currentLiquidity = summary.Item2;
+    var totalExpectedLoss = summary.Item4;
+    var cashForRisk = wallet?.CashBalance ?? 0;
+    var actualRiskPercent = cashForRisk > 0 ? totalExpectedLoss / cashForRisk * 100 : 0;
+    var riskBudgetValue = wallet?.MaxRiskPercent != null ? wallet.MaxRiskPercent.Value / 100 * cashForRisk : 0;
+    var isEditing = Model.Id.HasValue;
+    var hasFormErrors = !ViewData.ModelState.IsValid;
+    var riskNotSet = wallet?.MaxRiskPercent == null;
+}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="mb-0">تحكم في السيولة</h5>
+            <form method="post" action="@basePath/wallet/cash" class="d-inline" novalidate>
+                @Html.AntiForgeryToken()
+                <div class="input-group" style="max-width:320px">
+                    <input name="CashBalance" class="form-control" type="number" step="0.01" value="@(wallet?.CashBalance ?? 0)" />
+                    <button type="submit" class="btn btn-outline-success">تحديث السيولة</button>
+                </div>
+            </form>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-bordered mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>السيولة بالمحفظة</th>
+                        <th>الاستثمار المتوقع</th>
+                        <th>السيولة الحالية</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>@((wallet?.CashBalance ?? 0).ToString("N2"))</td>
+                        <td>@totalInvested.ToString("N2")</td>
+                        <td>@currentLiquidity.ToString("N2")</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4" id="riskSection">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="mb-0">المخاطر الكلية</h5>
+            <form method="post" action="@basePath/wallet/risk" id="walletRiskForm" class="d-inline" novalidate>
+                @Html.AntiForgeryToken()
+                <div class="input-group flex-nowrap" style="max-width:380px">
+                    <input name="RiskPercent" id="riskPercentInput" class="form-control" style="min-width:170px" type="number" min="0" max="100" step="0.01" value="@(wallet?.MaxRiskPercent?.ToString("0.##"))" placeholder="ادخل نسبة المخاطر" />
+                    <span class="input-group-text">%</span>
+                    <button type="submit" class="btn btn-outline-success">حفظ</button>
+                </div>
+            </form>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-bordered mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ادخل نسبة المخاطر</th>
+                        <th>قيمة مخاطر المحفظة</th>
+                        <th>قيمة المخاطر المتوقعة</th>
+                        <th>نسبة المخاطر المتوقعة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>@(wallet?.MaxRiskPercent.HasValue == true ? wallet.MaxRiskPercent.Value.ToString("N2") + "%" : "غير محدد")</td>
+                        <td>@riskBudgetValue.ToString("N2")</td>
+                        <td>@totalExpectedLoss.ToString("N2")</td>
+                        <td>@actualRiskPercent.ToString("N2")%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        @if (riskNotSet)
+        {
+            <div class="alert alert-warning mt-3 mb-0">يجب تحديد نسبة المخاطر المقبولة أولاً قبل إضافة أو تعديل أسهم في هذه المحفظة.</div>
+        }
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="mb-0">سجل المحفظة</h5>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-success" id="toggleWalletFormBtn" @(riskNotSet ? "disabled" : "")>أضف الى المحفظة</button>
+                @if (riskNotSet)
+                {
+                    <span class="text-muted small">حدد <a href="#riskSection">نسبة المخاطر</a> أولاً</span>
+                }
+            </div>
+        </div>
+
+        <div id="walletEntryFormCard" class="@(isEditing || hasFormErrors ? "" : "d-none")">
+            <form id="walletItemForm" method="post" action="@basePath/wallet/items" novalidate>
+                @Html.AntiForgeryToken()
+                <input asp-for="Id" type="hidden" />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">الكود / السهم</label>
+                        <select asp-for="StockId" id="walletStockSelect" class="form-select" required>
+                            <option value="">-- اختر السهم --</option>
+                            @foreach (var rec in Model.RecommendationStocks)
+                            {
+                                var isPrivateOnly = rec is UserStockRecommendation;
+                                var isExpired = rec.RecommendationType?.IsExpiredMarker == true;
+                                var tags = new List<string>();
+                                if (isPrivateOnly) { tags.Add("خاص"); }
+                                if (isExpired) { tags.Add("منتهية"); }
+                                var tagPrefix = tags.Count > 0 ? "(" + string.Join(" - ", tags) + ") " : "";
+                                var label = tagPrefix + rec.Stock.TickerSymbol + " — " + rec.Stock.NameAr;
+                                <option value="@rec.StockId">@label</option>
+                            }
+                        </select>
+                        <span asp-validation-for="StockId" class="invalid-feedback d-block"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">عدد الأسهم</label>
+                        <input id="quantityInput" asp-for="Quantity" class="form-control" type="number" step="1" min="1" />
+                        <span asp-validation-for="Quantity" class="invalid-feedback d-block"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">سعر الشراء</label>
+                        <select asp-for="PurchasePriceSource" id="purchasePriceModeSelect" class="form-select mb-2"></select>
+                        <div id="purchasePriceCustomWrapper" class="mt-2">
+                            <input asp-for="PurchasePrice" id="purchasePriceInput" class="form-control" type="number" step="0.01" />
+                        </div>
+                        <span asp-validation-for="PurchasePrice" class="invalid-feedback d-block"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">اجمالي الشراء</label>
+                        <input id="totalPurchaseDisplay" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">الوزن النسبي%</label>
+                        <input id="relativeWeightDisplay" class="form-control" readonly />
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">المستهدف</label>
+                        <select asp-for="TargetPriceSource" id="targetPriceModeSelect" class="form-select mb-2"></select>
+                        <div id="targetPriceCustomWrapper" class="mt-2">
+                            <input asp-for="TargetPrice" id="targetPriceInput" class="form-control" type="number" step="0.01" />
+                        </div>
+                        <span asp-validation-for="TargetPrice" class="invalid-feedback d-block"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">وقف الخسارة</label>
+                        <select asp-for="StopLossSource" id="stopLossModeSelect" class="form-select mb-2"></select>
+                        <div id="stopLossCustomWrapper" class="mt-2">
+                            <input asp-for="StopLossPrice" id="stopLossPriceInput" class="form-control" type="number" step="0.01" />
+                        </div>
+                        <span asp-validation-for="StopLossPrice" class="invalid-feedback d-block"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">الأرباح المستهدفة</label>
+                        <input id="expectedProfitDisplay" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">نسبة الربح المستهدف%</label>
+                        <input id="targetProfitPercentDisplay" class="form-control text-success" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">الخسائر المتوقعة</label>
+                        <input id="expectedLossDisplay" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">نسبة الخسارة المتوقعة%</label>
+                        <input id="expectedLossPercentDisplay" class="form-control text-danger" readonly />
+                    </div>
+                </div>
+                <div id="riskWarningAlert" class="alert alert-danger d-none mt-3 mb-0"></div>
+                <div class="mt-3 d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-success" id="walletItemSubmitBtn" @(riskNotSet ? "disabled" : "")>@(isEditing ? "تحديث السهم" : "إضافة")</button>
+                    @if (isEditing)
+                    {
+                        <a href="@basePath/wallet" class="btn btn-outline-secondary">إلغاء</a>
+                    }
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive mt-3">
+            <table class="table table-hover table-bordered mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>السهم</th>
+                        <th>القطاع</th>
+                        <th>عدد الأسهم</th>
+                        <th>سعر الشراء</th>
+                        <th>اجمالي الشراء</th>
+                        <th>الوزن النسبي%</th>
+                        <th>المستهدف</th>
+                        <th>وقف الخسارة</th>
+                        <th>الأرباح المستهدفة</th>
+                        <th>نسبة الربح المستهدف%</th>
+                        <th>الخسائر المتوقعة</th>
+                        <th>نسبة الخسارة المتوقعة%</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in wallet?.Items ?? Enumerable.Empty<WalletItem>())
+                    {
+                        <tr>
+                            <td>@item.Stock.TickerSymbol — @item.Stock.NameAr</td>
+                            <td>@item.Stock.Category?.NameAr</td>
+                            <td>@item.Quantity</td>
+                            <td>@item.PurchasePrice.ToString("N2")</td>
+                            <td>@item.TotalPurchase.ToString("N2")</td>
+                            <td>@item.RelativeWeightPercent.ToString("N2")%</td>
+                            <td>@item.TargetPrice.ToString("N2")</td>
+                            <td>@item.StopLossPrice.ToString("N2")</td>
+                            <td class="text-success">@item.ExpectedProfit.ToString("N2")</td>
+                            <td class="text-success">@item.TargetProfitPercent.ToString("N2")%</td>
+                            <td class="text-danger">@item.ExpectedLoss.ToString("N2")</td>
+                            <td class="text-danger">@item.ExpectedLossPercent.ToString("N2")%</td>
+                            <td class="text-nowrap">
+                                @if (riskNotSet)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-primary me-2" disabled title="يجب تحديد نسبة المخاطر أولاً">تعديل</button>
+                                }
+                                else
+                                {
+                                    <a href="@basePath/wallet/items/@item.Id/edit" class="btn btn-sm btn-outline-primary me-2">تعديل</a>
+                                }
+                                <form method="post" action="@basePath/wallet/items/@item.Id/delete" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا السهم من المحفظة؟');">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="table-secondary fw-bold">
+                        @{
+                            var items = wallet?.Items ?? Enumerable.Empty<WalletItem>();
+                            decimal totalPurchaseSum = items.Sum(i => i.TotalPurchase);
+                            decimal expectedProfitSum = items.Sum(i => i.ExpectedProfit);
+                            decimal expectedLossSum = items.Sum(i => i.ExpectedLoss);
+                        }
+                        <td>الإجمالي</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>@(totalPurchaseSum.ToString("N2"))</td>
+                        <td>@(items.Sum(i => i.RelativeWeightPercent).ToString("N2"))%</td>
+                        <td></td>
+                        <td></td>
+                        <td class="text-success">@(expectedProfitSum.ToString("N2"))</td>
+                        <td class="text-success">@((totalPurchaseSum > 0 ? (expectedProfitSum / totalPurchaseSum) * 100 : 0).ToString("N2"))%</td>
+                        <td class="text-danger">@(expectedLossSum.ToString("N2"))</td>
+                        <td class="text-danger">@((totalPurchaseSum > 0 ? (expectedLossSum / totalPurchaseSum) * 100 : 0).ToString("N2"))%</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="walletErrorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تنبيه</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">@TempData["Error"]</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <style>
+        .invalid-feedback { display: block; color: #dc3545; font-size: 0.875em; }
+        .form-control.is-invalid, .form-select.is-invalid, .form-control.input-validation-error, .form-select.input-validation-error { border-color: #dc3545; }
+        .field-validation-error { color: #dc3545; font-size: 0.875em; }
+    </style>
+    <script>
+        const recommendationStocks = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RecommendationStocks.Select(r => new { id = r.StockId, closingPrice = r.ClosingPrice, resistance1 = r.Resistance1, resistance2 = r.Resistance2, support1 = r.Support1, support2 = r.Support2 })));
+        const cashBalance = @((wallet?.CashBalance ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        const maxRiskPercent = @(wallet?.MaxRiskPercent != null ? wallet.MaxRiskPercent.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "null");
+        const actualRiskPercentServer = @(actualRiskPercent.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        const editingItemId = @(Model.Id.HasValue ? Model.Id.Value.ToString() : "null");
+        const walletItemsExpectedLoss = @Html.Raw(System.Text.Json.JsonSerializer.Serialize((wallet?.Items ?? Enumerable.Empty<WalletItem>()).Select(i => new { id = i.Id, expectedLoss = i.ExpectedLoss })));
+        const initialPurchasePriceSource = '@(Model.PurchasePriceSource ?? "ClosePrice")';
+        const initialTargetPriceSource = '@(Model.TargetPriceSource ?? "Resistance1")';
+        const initialStopLossSource = '@(Model.StopLossSource ?? "Support1")';
+        const stockSelect = document.getElementById('walletStockSelect');
+        const quantityInput = document.getElementById('quantityInput');
+        const purchasePriceModeSelect = document.getElementById('purchasePriceModeSelect');
+        const purchasePriceInput = document.getElementById('purchasePriceInput');
+        const targetPriceModeSelect = document.getElementById('targetPriceModeSelect');
+        const targetPriceInput = document.getElementById('targetPriceInput');
+        const stopLossModeSelect = document.getElementById('stopLossModeSelect');
+        const stopLossPriceInput = document.getElementById('stopLossPriceInput');
+        const totalPurchaseDisplay = document.getElementById('totalPurchaseDisplay');
+        const relativeWeightDisplay = document.getElementById('relativeWeightDisplay');
+        const expectedProfitDisplay = document.getElementById('expectedProfitDisplay');
+        const expectedLossDisplay = document.getElementById('expectedLossDisplay');
+        const targetProfitPercentDisplay = document.getElementById('targetProfitPercentDisplay');
+        const expectedLossPercentDisplay = document.getElementById('expectedLossPercentDisplay');
+        const formCard = document.getElementById('walletEntryFormCard');
+        const toggleButton = document.getElementById('toggleWalletFormBtn');
+
+        function setFieldState(input, message) {
+            const wrapper = input.closest('.col-md-3, .col-md-6');
+            if (!wrapper) return;
+            const feedback = wrapper.querySelector('.invalid-feedback');
+            if (message) {
+                input.classList.add('is-invalid');
+                if (feedback) feedback.textContent = message;
+            } else {
+                input.classList.remove('is-invalid');
+                if (feedback) feedback.textContent = '';
+            }
+        }
+
+        function setSelectState(select, message) {
+            if (message) {
+                select.classList.add('is-invalid');
+            } else {
+                select.classList.remove('is-invalid');
+            }
+            const wrapper = select.closest('.col-md-3, .col-md-6');
+            const feedback = wrapper ? wrapper.querySelector('.invalid-feedback') : null;
+            if (feedback) {
+                feedback.textContent = message || '';
+            }
+        }
+
+        function getSelectedRecommendation() {
+            const selectedId = parseInt(stockSelect.value || 0, 10);
+            return recommendationStocks.find(function (item) { return item.id === selectedId; }) || null;
+        }
+
+        function populatePresetOptions() {
+            const selected = getSelectedRecommendation();
+            const purchaseOptions = [
+                { value: 'ClosePrice', label: 'سعر الإغلاق: ' + (selected ? selected.closingPrice : '') }
+            ];
+            const targetOptions = [
+                { value: 'Resistance1', label: 'مقاومة 1: ' + (selected ? selected.resistance1 : '') },
+                { value: 'Resistance2', label: 'مقاومة 2: ' + (selected ? selected.resistance2 : '') }
+            ];
+            const stopLossOptions = [
+                { value: 'Support1', label: 'دعم 1: ' + (selected ? selected.support1 : '') },
+                { value: 'Support2', label: 'دعم 2: ' + (selected ? selected.support2 : '') }
+            ];
+            const setOptions = function (select, options, fallbackValue, initialValue) {
+                const currentValue = select.value || initialValue || fallbackValue;
+                select.innerHTML = '';
+                options.forEach(function (option) {
+                    const opt = document.createElement('option');
+                    opt.value = option.value;
+                    opt.textContent = option.label;
+                    select.appendChild(opt);
+                });
+                const customOption = document.createElement('option');
+                customOption.value = 'Custom';
+                customOption.textContent = 'مخصص';
+                select.appendChild(customOption);
+                if (Array.isArray(options) && options.some(function (item) { return item.value === currentValue; })) {
+                    select.value = currentValue;
+                } else if (currentValue === 'Custom') {
+                    select.value = 'Custom';
+                } else {
+                    select.value = fallbackValue;
+                }
+            };
+            setOptions(purchasePriceModeSelect, purchaseOptions, 'ClosePrice', initialPurchasePriceSource);
+            setOptions(targetPriceModeSelect, targetOptions, 'Resistance1', initialTargetPriceSource);
+            setOptions(stopLossModeSelect, stopLossOptions, 'Support1', initialStopLossSource);
+            updatePriceFieldVisibility();
+        }
+
+        function applyPresetValue(modeSelect, numericInput, selected) {
+            if (!selected) return;
+            if (modeSelect.value === 'ClosePrice') {
+                numericInput.value = selected.closingPrice;
+            } else if (modeSelect.value === 'Resistance1') {
+                numericInput.value = selected.resistance1;
+            } else if (modeSelect.value === 'Resistance2') {
+                numericInput.value = selected.resistance2;
+            } else if (modeSelect.value === 'Support1') {
+                numericInput.value = selected.support1;
+            } else if (modeSelect.value === 'Support2') {
+                numericInput.value = selected.support2;
+            }
+        }
+
+        function updatePriceFieldVisibility() {
+            const selected = getSelectedRecommendation();
+            const showCustom = purchasePriceModeSelect.value === 'Custom';
+            const showTargetCustom = targetPriceModeSelect.value === 'Custom';
+            const showStopLossCustom = stopLossModeSelect.value === 'Custom';
+            purchasePriceCustomWrapper.style.display = showCustom ? 'block' : 'none';
+            targetPriceCustomWrapper.style.display = showTargetCustom ? 'block' : 'none';
+            stopLossCustomWrapper.style.display = showStopLossCustom ? 'block' : 'none';
+            if (selected && purchasePriceModeSelect.value !== 'Custom') {
+                applyPresetValue(purchasePriceModeSelect, purchasePriceInput, selected);
+            }
+            if (selected && targetPriceModeSelect.value !== 'Custom') {
+                applyPresetValue(targetPriceModeSelect, targetPriceInput, selected);
+            }
+            if (selected && stopLossModeSelect.value !== 'Custom') {
+                applyPresetValue(stopLossModeSelect, stopLossPriceInput, selected);
+            }
+            validateForm();
+        }
+
+        function otherItemsExpectedLossSum() {
+            return walletItemsExpectedLoss
+                .filter(function (i) { return editingItemId === null || i.id !== editingItemId; })
+                .reduce(function (sum, i) { return sum + i.expectedLoss; }, 0);
+        }
+
+        function computeProjectedRiskPercent() {
+            const quantity = parseFloat(quantityInput.value || 0);
+            const purchasePrice = parseFloat(purchasePriceInput.value || 0);
+            const stopLossPrice = parseFloat(stopLossPriceInput.value || 0);
+            const incomingExpectedLoss = quantity * (purchasePrice - stopLossPrice);
+            const projectedExpectedLoss = otherItemsExpectedLossSum() + incomingExpectedLoss;
+            return cashBalance > 0 ? (projectedExpectedLoss / cashBalance * 100) : 0;
+        }
+
+        function showRiskModal(message) {
+            const modalEl = document.getElementById('walletErrorModal');
+            if (!modalEl || typeof bootstrap === 'undefined') return;
+            modalEl.querySelector('.modal-body').textContent = message;
+            new bootstrap.Modal(modalEl).show();
+        }
+
+        function updateCalculations() {
+            const quantity = parseFloat(quantityInput.value || 0);
+            const purchasePrice = parseFloat(purchasePriceInput.value || 0);
+            const targetPrice = parseFloat(targetPriceInput.value || 0);
+            const stopLossPrice = parseFloat(stopLossPriceInput.value || 0);
+            const totalPurchase = quantity * purchasePrice;
+            const relativeWeight = cashBalance === 0 ? 0 : totalPurchase / cashBalance * 100;
+            const expectedProfit = quantity * (targetPrice - purchasePrice);
+            const expectedLoss = quantity * (purchasePrice - stopLossPrice);
+            const targetProfitPercent = purchasePrice === 0 ? 0 : (targetPrice - purchasePrice) / purchasePrice * 100;
+            const expectedLossPercent = purchasePrice === 0 ? 0 : (purchasePrice - stopLossPrice) / purchasePrice * 100;
+            totalPurchaseDisplay.value = totalPurchase.toFixed(2);
+            relativeWeightDisplay.value = relativeWeight.toFixed(2);
+            expectedProfitDisplay.value = expectedProfit.toFixed(2);
+            expectedLossDisplay.value = expectedLoss.toFixed(2);
+            targetProfitPercentDisplay.value = targetProfitPercent.toFixed(2);
+            expectedLossPercentDisplay.value = expectedLossPercent.toFixed(2);
+        }
+
+        function validateForm() {
+            const quantity = parseFloat(quantityInput.value || 0);
+            const purchasePrice = parseFloat(purchasePriceInput.value || 0);
+            const targetPrice = parseFloat(targetPriceInput.value || 0);
+            const stopLossPrice = parseFloat(stopLossPriceInput.value || 0);
+            const currentCash = cashBalance;
+            const maxPurchasePrice = quantity > 0 ? currentCash / quantity : currentCash;
+            const maxQuantity = purchasePrice > 0 ? currentCash / purchasePrice : currentCash;
+            let hasError = false;
+
+            if (!stockSelect.value) {
+                setSelectState(stockSelect, 'يرجى اختيار السهم');
+                hasError = true;
+            } else {
+                setSelectState(stockSelect, '');
+            }
+
+            if (!quantity || quantity < 1) {
+                setFieldState(quantityInput, 'يرجى إدخال عدد أسهم صحيح');
+                hasError = true;
+            } else {
+                setFieldState(quantityInput, '');
+            }
+
+            if (!purchasePrice || purchasePrice <= 0) {
+                setFieldState(purchasePriceInput, 'يرجى إدخال سعر شراء');
+                hasError = true;
+            } else if (quantity > 0 && purchasePrice > maxPurchasePrice) {
+                setFieldState(purchasePriceInput, 'سعر الشراء أكبر من السيولة المتاحة');
+                hasError = true;
+            } else {
+                setFieldState(purchasePriceInput, '');
+            }
+
+            if (!targetPrice || targetPrice <= 0) {
+                setFieldState(targetPriceInput, 'يرجى إدخال قيمة المستهدف');
+                hasError = true;
+            } else if (targetPrice <= purchasePrice) {
+                setFieldState(targetPriceInput, 'المستهدف يجب أن يكون أعلى من سعر الشراء');
+                hasError = true;
+            } else {
+                setFieldState(targetPriceInput, '');
+            }
+
+            if (!stopLossPrice || stopLossPrice <= 0) {
+                setFieldState(stopLossPriceInput, 'يرجى إدخال قيمة وقف الخسارة');
+                hasError = true;
+            } else if (stopLossPrice >= purchasePrice) {
+                setFieldState(stopLossPriceInput, 'وقف الخسارة يجب أن يكون أقل من سعر الشراء');
+                hasError = true;
+            } else {
+                setFieldState(stopLossPriceInput, '');
+            }
+
+            if (quantity > 0 && purchasePrice > 0 && quantity > maxQuantity) {
+                setFieldState(quantityInput, 'عدد الأسهم أكبر من ما تملكه السيولة');
+                hasError = true;
+            }
+
+            const riskWarningAlert = document.getElementById('riskWarningAlert');
+            if (maxRiskPercent === null) {
+                riskWarningAlert.classList.add('d-none');
+            } else if (quantity > 0 && purchasePrice > 0 && stopLossPrice > 0 && computeProjectedRiskPercent() > maxRiskPercent) {
+                riskWarningAlert.textContent = 'هذا السهم سيجعل نسبة المخاطر المتوقعة لهذه المحفظة تتجاوز الحد الأقصى المحدد (' + maxRiskPercent.toFixed(2) + '%)';
+                riskWarningAlert.classList.remove('d-none');
+                hasError = true;
+            } else {
+                riskWarningAlert.classList.add('d-none');
+            }
+
+            return !hasError;
+        }
+
+        [stockSelect, quantityInput, purchasePriceInput, targetPriceInput, stopLossPriceInput, purchasePriceModeSelect, targetPriceModeSelect, stopLossModeSelect].forEach(function (field) {
+            field.addEventListener('input', function () {
+                updateCalculations();
+                validateForm();
+            });
+        });
+
+        stockSelect.addEventListener('change', function () {
+            populatePresetOptions();
+            updateCalculations();
+            validateForm();
+        });
+
+        [purchasePriceModeSelect, targetPriceModeSelect, stopLossModeSelect].forEach(function (field) {
+            field.addEventListener('change', function () {
+                updatePriceFieldVisibility();
+                updateCalculations();
+                validateForm();
+            });
+        });
+
+        toggleButton.addEventListener('click', function () {
+            formCard.classList.toggle('d-none');
+        });
+
+        const walletItemForm = document.getElementById('walletItemForm');
+        if (walletItemForm) {
+            walletItemForm.addEventListener('submit', function (event) {
+                if (maxRiskPercent === null) {
+                    event.preventDefault();
+                    showRiskModal('يرجى تحديد نسبة المخاطر المقبولة أولاً قبل إضافة أو تعديل أسهم في هذه المحفظة.');
+                    return;
+                }
+                const isValid = validateForm();
+                if (!isValid) {
+                    event.preventDefault();
+                    if (computeProjectedRiskPercent() > maxRiskPercent) {
+                        showRiskModal('لا يمكن إضافة/تعديل هذا السهم لأن ذلك سيجعل نسبة المخاطر المتوقعة لهذه المحفظة تتجاوز الحد الأقصى المحدد.');
+                    }
+                }
+            });
+        }
+
+        const walletRiskForm = document.getElementById('walletRiskForm');
+        const riskPercentInput = document.getElementById('riskPercentInput');
+        if (walletRiskForm && riskPercentInput) {
+            walletRiskForm.addEventListener('submit', function (event) {
+                const entered = parseFloat(riskPercentInput.value);
+                if (isNaN(entered) || entered < 0 || entered > 100) {
+                    event.preventDefault();
+                    showRiskModal('يرجى إدخال نسبة مخاطر صالحة بين 0 و 100');
+                    return;
+                }
+                if (entered < actualRiskPercentServer) {
+                    event.preventDefault();
+                    showRiskModal('لا يمكن أن تكون نسبة المخاطر التي تدخلها أقل من نسبة المخاطر المتوقعة الحالية لهذه المحفظة (' + actualRiskPercentServer.toFixed(2) + '%)');
+                }
+            });
+        }
+
+        const walletErrorMessage = @Html.Raw(TempData["Error"] != null ? System.Text.Json.JsonSerializer.Serialize(TempData["Error"]!.ToString()) : "null");
+        document.addEventListener('DOMContentLoaded', function () {
+            if (walletErrorMessage) {
+                showRiskModal(walletErrorMessage);
+            }
+        });
+
+        populatePresetOptions();
+        updateCalculations();
+        validateForm();
+    </script>
+}

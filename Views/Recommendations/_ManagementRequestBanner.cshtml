@@ -1,0 +1,93 @@
+@using HalalStocks.Models
+@{
+    // One WalletManagementRequest covers all three tabs (التوصيات / المستشار الآلي / المحفظة الفعلية),
+    // so this banner renders at the top of each of them. Read from ViewBag rather than a partial model:
+    // the status is a nullable enum, and the <partial model="..."> tag helper is awkward with a null value.
+    var managementStatus = ViewBag.ManagementStatus as WalletManagementRequestStatus?;
+}
+
+@if (managementStatus == WalletManagementRequestStatus.Pending)
+{
+    <div class="alert alert-info d-flex align-items-center gap-2">
+        <i class="bi bi-hourglass-split"></i>
+        <span>طلبك للحصول على مساعدة في إدارة محفظتك قيد المراجعة.</span>
+    </div>
+}
+else if (managementStatus == WalletManagementRequestStatus.Approved)
+{
+    <div class="alert alert-success d-flex align-items-center gap-2">
+        <i class="bi bi-person-check"></i>
+        <span>تمت الموافقة على طلبك، وسيقوم أحد المختصين بمساعدتك في إدارة محفظتك.</span>
+    </div>
+}
+else
+{
+    <div class="alert alert-info d-flex align-items-center justify-content-between flex-wrap gap-2"
+         id="managementRequestTeaser" role="button" style="cursor:pointer;">
+        <span>
+            <i class="bi bi-question-circle ms-1"></i>
+            هل تحتاج مساعدة في إدارة محفظتك؟
+        </span>
+        <span class="text-decoration-underline">اعرف المزيد</span>
+    </div>
+
+    <div class="modal fade" id="managementRequestModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" action="/recommendations/wallet/management-request" id="managementRequestForm">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-header">
+                        <h5 class="modal-title">المساعدة في إدارة المحفظة</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>
+                            يمكنك إرسال طلب إلى فريق العمل لتعيين مختص يساعدك في إدارة محفظتك الاستثمارية،
+                            حيث يقوم المختص بمتابعة محفظتك وتعديلها نيابةً عنك وفقاً للتوصيات المتاحة.
+                        </p>
+                        <div class="form-check">
+                            @* Checkbox first, hidden fallback second: the model binder takes the FIRST
+                               submitted value for the key, so reversing these makes consent always bind false. *@
+                            <input class="form-check-input" type="checkbox" name="consent" value="true"
+                                   id="managementConsentCheck" />
+                            <input type="hidden" name="consent" value="false" />
+                            <label class="form-check-label" for="managementConsentCheck">
+                                أوافق على السماح لمختص من الفريق بالاطلاع على محفظتي ومساعدتي في إدارتها.
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                        <button type="submit" class="btn btn-success" id="managementRequestSubmit" disabled>
+                            إرسال الطلب
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @* Inline rather than in @@section Scripts — partials cannot contribute to a layout section.
+       DOMContentLoaded still guarantees bootstrap is loaded, since the layout's bundle <script>
+       at the end of <body> runs before that event fires. *@
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const managementTeaser = document.getElementById('managementRequestTeaser');
+            const managementModalEl = document.getElementById('managementRequestModal');
+            const managementConsent = document.getElementById('managementConsentCheck');
+            const managementSubmit = document.getElementById('managementRequestSubmit');
+
+            if (managementTeaser && managementModalEl && typeof bootstrap !== 'undefined') {
+                managementTeaser.addEventListener('click', function () {
+                    new bootstrap.Modal(managementModalEl).show();
+                });
+            }
+
+            if (managementConsent && managementSubmit) {
+                managementConsent.addEventListener('change', function () {
+                    managementSubmit.disabled = !managementConsent.checked;
+                });
+            }
+        });
+    </script>
+}

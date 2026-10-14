@@ -1,0 +1,16 @@
+@model HalalStocks.Models.StockIndex
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label">الاسم بالعربية *</label>
+        <input asp-for="NameAr" class="form-control" required>
+        <span asp-validation-for="NameAr" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">الاسم الشائع</label>
+        <input asp-for="CommonName" class="form-control" placeholder="مثال: مؤشر الشريعة 33">
+    </div>
+    <div class="col-12">
+        <label class="form-label">الوصف</label>
+        <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+    </div>
+</div>

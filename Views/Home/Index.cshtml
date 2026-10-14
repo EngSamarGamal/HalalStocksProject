@@ -1,0 +1,576 @@
+@model HomeViewModel
+@{
+    ViewData["Title"] = "الأسهم الحلال في البورصة المصرية";
+}
+
+<div class="py-4 mb-4 bg-success text-white rounded-3 px-4">
+    <div class="d-flex align-items-baseline gap-3 flex-wrap">
+        <h1 class="fw-bold mb-0">🕌 كاشف</h1>
+        <span class="fs-5 opacity-75">نقاء محفظتك، يبدأ من هنا.</span>
+    </div>
+    <p class="lead mb-0 mt-1">فرز أسهم البورصة المصرية (EGX) وفق أحكام الشريعة الإسلامية</p>
+</div>
+
+@if (Model.Banners.Any())
+{
+    <div id="homeBannerCarousel" class="carousel slide mb-4 rounded-3 overflow-hidden shadow-sm" data-bs-ride="carousel" data-bs-interval="10000">
+        @if (Model.Banners.Count() > 1)
+        {
+            <div class="carousel-indicators">
+                @for (var i = 0; i < Model.Banners.Count(); i++)
+                {
+                    <button type="button" data-bs-target="#homeBannerCarousel" data-bs-slide-to="@i" class="@(i == 0 ? "active" : "")" aria-current="@(i == 0 ? "true" : "false")" aria-label="إعلان @(i + 1)"></button>
+                }
+            </div>
+        }
+        <div class="carousel-inner">
+            @{ var first = true; }
+            @foreach (var banner in Model.Banners)
+            {
+                <div class="carousel-item @(first ? "active" : "")" style="background:#f0f0f0;">
+                    <img src="@banner.ImagePath" class="d-block w-100" style="height:auto;" alt="@banner.TitleAr">
+                    @{ var hasButton = !string.IsNullOrWhiteSpace(banner.ButtonText) && !string.IsNullOrWhiteSpace(banner.ButtonUrl);
+                       var external = hasButton && banner.ButtonUrl!.StartsWith("http", StringComparison.OrdinalIgnoreCase); }
+                    <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded-3 pb-3">
+                        <h5 class="mb-1">@banner.TitleAr</h5>
+                        @if (!string.IsNullOrEmpty(banner.DescriptionAr))
+                        {
+                            <p class="mb-0 small">@banner.DescriptionAr</p>
+                        }
+                        @if (hasButton)
+                        {
+                            <a href="@banner.ButtonUrl" class="btn btn-sm text-white fw-bold mt-2" style="background:#fd7e14;border-color:#fd7e14"
+                               target="@(external ? "_blank" : "_self")" rel="@(external ? "noopener" : null)">@banner.ButtonText</a>
+                        }
+                    </div>
+                    @if (hasButton)
+                    {
+                        @* Mobile-only copy: .carousel-caption is hidden below md, so the button is repeated here *@
+                        <a href="@banner.ButtonUrl" class="btn text-white fw-bold position-absolute start-50 translate-middle-x mb-3 shadow d-md-none" style="bottom:0;z-index:2;background:#fd7e14;border-color:#fd7e14"
+                           target="@(external ? "_blank" : "_self")" rel="@(external ? "noopener" : null)">@banner.ButtonText</a>
+                    }
+                </div>
+                first = false;
+            }
+        </div>
+        @if (Model.Banners.Count() > 1)
+        {
+            <button class="carousel-control-prev" type="button" data-bs-target="#homeBannerCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">السابق</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#homeBannerCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">التالي</span>
+            </button>
+        }
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.HomeAlertsHtml))
+{
+    <div class="accordion mb-4" id="homeAlertsAccordion">
+        <div class="accordion-item border-warning">
+            <h2 class="accordion-header">
+                @* Title and gist are wrapped in one flex-column span: .accordion-button is itself a
+                   flex row that pushes its chevron out with an auto margin, so making the button
+                   flex-column would drop the chevron below the text. *@
+                <button class="accordion-button collapsed" type="button" id="homeAlertsToggle"
+                        data-bs-toggle="collapse" data-bs-target="#homeAlertsCollapse"
+                        aria-expanded="false" aria-controls="homeAlertsCollapse">
+                    <span class="d-flex flex-column text-start">
+                        <span class="fw-bold">
+                            <i class="bi bi-exclamation-triangle-fill ms-2"></i>تنبيهات هامة
+                        </span>
+                        <!--<span class="small opacity-75">مادة استرشادية ولا نتقاضى أي مدفوعات</span>-->
+                    </span>
+                </button>
+            </h2>
+            <div id="homeAlertsCollapse" class="accordion-collapse collapse" aria-labelledby="homeAlertsToggle">
+                <div class="accordion-body pt-2 small">
+                    @Html.Raw(Model.HomeAlertsHtml)
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<form method="get" action="/" class="mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">بحث بالرمز أو السهم</label>
+            <input type="text" name="search" value="@Model.Search" class="form-control" placeholder="ابحث بالرمز أو الاسم...">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">بحث بالقطاع</label>
+            <div class="dropdown w-100" id="categoryDropdown">
+                <button class="form-select text-start" type="button"
+                        id="categoryDropBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                    <span id="categoryLabel">
+                        @(Model.CategoryIds.Count > 0
+                            ? $"{Model.CategoryIds.Count} قطاع مختار"
+                            : "الكل")
+                    </span>
+                </button>
+                <ul class="dropdown-menu w-100 p-2" aria-labelledby="categoryDropBtn" style="max-height:220px;overflow-y:auto;">
+                    <li class="border-bottom mb-1 pb-1">
+                        <label class="dropdown-item d-flex align-items-center gap-2 py-1 fw-semibold" style="cursor:pointer;">
+                            <input type="checkbox" class="form-check-input" id="categorySelectAll" style="cursor:pointer;">
+                            الكل
+                        </label>
+                    </li>
+                    @foreach (var cat in Model.Categories)
+                    {
+                        var isChecked = Model.CategoryIds.Contains(cat.Id);
+                        <li>
+                            <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+                                <input type="checkbox" class="form-check-input category-check" name="categoryIds"
+                                       value="@cat.Id" @(isChecked ? "checked" : "") style="cursor:pointer;">
+                                @cat.NameAr
+                            </label>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+        @if (Model.Indices.Any())
+        {
+            <div class="col-md-4">
+                <label class="form-label">بحث حسب المؤشر  <small class="text-muted">بحث متقدم</small></label>
+                <div class="dropdown w-100" id="indexDropdown">
+                    <button class="form-select text-start" type="button"
+                            id="indexDropBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                        <span id="indexLabel">
+                            @(Model.IndexIds.Count > 0
+                                ? $"{Model.IndexIds.Count} مؤشر مختار"
+                                : "الكل")
+                        </span>
+                    </button>
+                    <ul class="dropdown-menu w-100 p-2" aria-labelledby="indexDropBtn" style="max-height:220px;overflow-y:auto;">
+                        <li class="border-bottom mb-1 pb-1">
+                            <label class="dropdown-item d-flex align-items-center gap-2 py-1 fw-semibold" style="cursor:pointer;">
+                                <input type="checkbox" class="form-check-input" id="indexSelectAll" style="cursor:pointer;">
+                                الكل
+                            </label>
+                        </li>
+                        @foreach (var idx in Model.Indices)
+                        {
+                            var isChecked = Model.IndexIds.Contains(idx.Id);
+                            <li>
+                                <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+                                    <input type="checkbox" class="form-check-input index-check" name="indexIds"
+                                           value="@idx.Id" @(isChecked ? "checked" : "") style="cursor:pointer;">
+                                    @(!string.IsNullOrEmpty(idx.CommonName) ? idx.CommonName : idx.NameAr)
+                                </label>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+        <div class="col-md-4">
+            <label class="form-label">بحث بالموقف الشرعي</label>
+            @{
+                var current = Model.ShariahStatus?.ToString();
+                var statusItems = new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>
+                {
+                    new("🟢 متوافق مع الشريعة",           "Halal",                       current == "Halal"),
+                    new("🔴 غير متوافق مع الشريعة",        "MustPurify",                  current == "MustPurify"),
+                    new("🕐 في انتظار القوائم المالية",     "AwaitingFinancialStatements", current == "AwaitingFinancialStatements"),
+                    new("🚫 تم حجب إعلان الموقف الشرعي",   "StatusBlocked",               current == "StatusBlocked"),
+                };
+            }
+            <select name="shariahStatus" class="form-select" asp-items="statusItems">
+                <option value="">الكل</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">بحث بدرجة النقاء</label>
+            <div class="dropdown w-100" id="purityDropdown">
+                <button class="form-select text-start" type="button"
+                        id="purityDropBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                    <span id="purityLabel">
+                        @((Model.Pure ? 1 : 0) + (Model.SemiPure ? 1 : 0) is > 0 and < 2
+                            ? "1 درجة مختارة"
+                            : "الكل")
+                    </span>
+                </button>
+                <ul class="dropdown-menu w-100 p-2" aria-labelledby="purityDropBtn">
+                    <li class="border-bottom mb-1 pb-1">
+                        <label class="dropdown-item d-flex align-items-center gap-2 py-1 fw-semibold" style="cursor:pointer;">
+                            <input type="checkbox" class="form-check-input" id="puritySelectAll" style="cursor:pointer;">
+                            الكل
+                        </label>
+                    </li>
+                    <li>
+                        <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+                            <input type="checkbox" class="form-check-input purity-check" name="pure" value="true"
+                                   @(Model.Pure ? "checked" : "") style="cursor:pointer;">
+                            نقي
+                        </label>
+                    </li>
+                    <li>
+                        <label class="dropdown-item d-flex align-items-center gap-2 py-1" style="cursor:pointer;">
+                            <input type="checkbox" class="form-check-input purity-check" name="semiPure" value="true"
+                                   @(Model.SemiPure ? "checked" : "") style="cursor:pointer;">
+                            شبه نقي
+                        </label>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-success w-100">بحث</button>
+        </div>
+    </div>
+</form>
+
+@if (!Model.SearchSubmitted)
+{
+    <div class="text-center text-muted py-5">
+        <p class="fs-5">ابحث بالرمز أو اسم الشركة للعثور على الأسهم الحلال</p>
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered align-middle">
+            <thead class="table-success">
+                <tr>
+                    <th>الرمز</th>
+                    <th>اسم الشركة</th>
+                    <th>القطاع</th>
+                    <th>الحكم الشرعي</th>
+                    <th>درجة النقاء</th>
+                    <th>نسبة التطهير</th>
+                    <th>تاريخ اصدار القوائم</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Stocks.Any())
+                {
+                    <tr><td colspan="8" class="text-center text-muted py-4">لا توجد نتائج</td></tr>
+                }
+                @foreach (var stock in Model.Stocks)
+                {
+                    <tr>
+                        <td><strong>@stock.TickerSymbol</strong></td>
+                        <td>@stock.NameAr</td>
+                        <td><span class="badge bg-secondary">@stock.Category.NameAr</span></td>
+                        <td>
+                            @switch (stock.ShariahStatus)
+                            {
+                                case ShariahStatus.Halal:
+                                    <span class="badge bg-success">🟢 متوافق مع الشريعة</span>
+                                    break;
+                                case ShariahStatus.MustPurify:
+                                    <span class="badge bg-danger text-dark">🟡 غير متوافق مع الشريعة</span>
+                                    break;
+                                case ShariahStatus.Prohibited:
+                                    <span class="badge bg-danger">🔴 محظور</span>
+                                    break;
+                                case ShariahStatus.NotReviewed:
+                                    <span class="badge bg-danger">⬜ لم يتم مراجعته</span>
+                                    break;
+                                case ShariahStatus.AwaitingFinancialStatements:
+                                    <span class="badge bg-info text-dark">🕐 في انتظار القوائم المالية</span>
+                                    break;
+                                case ShariahStatus.StatusBlocked:
+                                    <span class="badge bg-danger">🚫 تم حجب إعلان الموقف الشرعي</span>
+                                    break;
+                            }
+                        </td>
+                        <td>
+                            @if (stock.PurityGrades != PurityGrade.None)
+                            {
+                                @foreach (var (grade, label, css) in new[]
+                                {
+                                    (PurityGrade.Pure,                       "نقي",                          "bg-success"),
+                                    (PurityGrade.SemiPure,                   "شبه نقي",                      "bg-success"),
+                                    (PurityGrade.ShariaMixedA,               "شرعي مختلط A",                 "bg-warning text-dark"),
+                                    (PurityGrade.ShariaMixedB,               "شرعي مختلط B",                 "bg-warning text-dark"),
+                                    (PurityGrade.ShariaMixedC,               "شرعي مختلط C",                 "bg-warning text-dark"),
+                                    (PurityGrade.NonShariahProhibitedIncome, "غير شرعي دخل محظور",           "bg-danger"),
+                                    (PurityGrade.NonShariahDebts,            "غير شرعي قروض",                "bg-danger"),
+                                    (PurityGrade.NonShariahRibaInvestments,  "غير شرعي استثمارات ربوية",     "bg-danger"),
+                                    (PurityGrade.NonShariahActivity,         "غير شرعي نشاط",                "bg-danger"),
+                                })
+                                {
+                                    if (stock.PurityGrades.HasFlag(grade))
+                                    {
+                                        <span class="badge @css me-1">@label</span>
+                                    }
+                                }
+                            }
+                            else { <span class="text-muted">-</span> }
+                        </td>
+                        <td>
+                            @if (stock.PurificationRatio.HasValue)
+                            {
+                                <span class="fw-semibold">@stock.PurificationRatio%</span>
+                            }
+                            else { <span class="text-muted">-</span> }
+                        </td>
+                        <td>
+                            @if (stock.LastReviewedAt.HasValue)
+                            {
+                                @stock.LastReviewedAt.Value.ToString("dd/MM/yyyy")
+                            }
+                            else { <span class="text-muted">-</span> }
+                        </td>
+                        <td><a href="/stocks/@stock.TickerSymbol" class="btn btn-sm btn-outline-success">التفاصيل</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav>
+            <ul class="pagination justify-content-center">
+                @for (int i = 1; i <= Model.TotalPages; i++)
+                {
+                    <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                        <a class="page-link" href="?search=@Model.Search&@string.Join("&", Model.CategoryIds.Select(id => $"categoryIds={id}"))&@string.Join("&", Model.IndexIds.Select(id => $"indexIds={id}"))&shariahStatus=@Model.ShariahStatus&pure=@Model.Pure&semiPure=@Model.SemiPure&page=@i">@i</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+}
+
+<hr class="my-5">
+<h3 class="mb-4">أدوات كاشف</h3>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
+    @{
+        var homeTools = new List<(string Url, string Icon, string Title, string Desc)>
+        {
+            ("/calculator",            "bi-droplet-half", "حاسبة تطهير الدخل المحظور",         "احسب نسبة ومبلغ التطهير الواجب على أرباح كل سهم في محفظتك."),
+            ("/zakat",                 "bi-coin",          "حاسبة زكاة المضارب",                "احسب زكاة رصيدك النقدي وقيمة أسهمك وفق سعر الذهب المحدَّث تلقائياً."),
+            ("/capital-purification",  "bi-cash-stack",    "حاسبة تطهير رأس المال",             "احسب نصيب رأس مالك الموجَّه إلى الاستثمارات الربوية والمبلغ الواجب تطهيره."),
+            ("/dividend-purification", "bi-cash-coin",     "حاسبة تطهير توزيعات الأرباح",       "احسب المبلغ الواجب تطهيره من توزيعات الأرباح النقدية التي استلمتها من أسهمك."),
+            ("/portfolio-request",     "bi-briefcase",     "فتح محفظة استثمارية",               "اطلب فتح وإدارة محفظة استثمارية متوافقة مع الشريعة الإسلامية.")
+        };
+        // Visible only to logged-in users, per the client's request — guests never see this card.
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            homeTools.Add(("/recommendations", "bi-star", "حاسبة المخاطر", "توصيات وتحليلات فنية لعملاء شركات السمسرة المتعاقدة."));
+        }
+    }
+    @foreach (var tool in homeTools)
+    {
+        <div class="col">
+            <a href="@tool.Url" class="text-decoration-none">
+                <div class="card h-100 shadow-sm tool-card">
+                    <div class="card-body text-center p-4">
+                        <div class="tool-card-icon mb-3"><i class="bi @tool.Icon"></i></div>
+                        <h6 class="card-title fw-bold text-dark mb-2">@tool.Title</h6>
+                        <p class="text-muted small mb-0">@tool.Desc</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    }
+</div>
+
+@if (Model.LatestAnalytical.Any())
+{
+    <hr class="my-5">
+    <h3 class="mb-4">تحليلات وآراء</h3>
+    <div class="d-flex flex-nowrap overflow-auto gap-3 pb-2">
+        @foreach (var card in Model.LatestAnalytical)
+        {
+            <div class="flex-shrink-0" style="width:280px">
+                <partial name="~/Views/Shared/_AnalyticalArticleCard.cshtml" model="card" />
+            </div>
+        }
+    </div>
+    <div class="text-center mt-3"><a href="/analytics" class="btn btn-outline-success">عرض كل التحليلات</a></div>
+}
+
+@if (Model.LatestArticles.Any())
+{
+    <hr class="my-5">
+    <h3 class="mb-4">آخر المقالات</h3>
+    <div class="d-flex flex-nowrap overflow-auto gap-3 pb-2">
+        @foreach (var article in Model.LatestArticles)
+        {
+            <div class="card h-100 shadow-sm flex-shrink-0" style="width:280px">
+                @if (article.FeaturedImagePath != null)
+                {
+                    <img src="@article.FeaturedImagePath" class="card-img-top" alt="@article.TitleAr" style="height:180px;object-fit:cover">
+                }
+                <div class="card-body">
+                    <h6 class="card-title article-card-title"><a href="/articles/@article.Id" class="text-decoration-none text-dark">@TextHelper.Truncate(article.TitleAr, 100)</a></h6>
+                    <small class="text-muted d-block">@article.ArticleCategory.NameAr</small>
+                    <small class="text-muted">@article.PublishedAt?.ToString("dd/MM/yyyy")</small>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="text-center mt-3"><a href="/articles" class="btn btn-outline-success">عرض كل المقالات</a></div>
+}
+
+@if (Model.LatestVideos.Any())
+{
+    <hr class="my-5">
+    <h3 class="mb-4">أحدث الفيديوهات</h3>
+    <div class="d-flex flex-nowrap overflow-auto gap-3 pb-2">
+        @foreach (var video in Model.LatestVideos)
+        {
+            <div class="card h-100 shadow-sm flex-shrink-0" style="width:280px">
+                <partial name="~/Views/Shared/_VideoCard.cshtml" model="video" />
+                <div class="card-body">
+                    <h6 class="card-title mb-1">@video.Title</h6>
+                    <small class="text-muted">@video.Category.Name</small>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="text-center mt-3"><a href="/videos" class="btn btn-outline-success">عرض كل الفيديوهات</a></div>
+}
+
+@if (Model.ShariahStandards.Any())
+{
+    <hr class="my-5">
+    <h3 class="mb-4">المعايير والضوابط وفقا للشريعة الإسلامية</h3>
+    <div class="d-flex flex-nowrap overflow-auto gap-3 pb-2">
+        @foreach (var article in Model.ShariahStandards)
+        {
+            <div class="card h-100 shadow-sm flex-shrink-0" style="width:280px">
+                @if (article.FeaturedImagePath != null)
+                {
+                    <img src="@article.FeaturedImagePath" class="card-img-top" alt="@article.TitleAr" style="height:180px;object-fit:cover">
+                }
+                <div class="card-body">
+                    <h6 class="card-title article-card-title"><a href="/articles/@article.Id" class="text-decoration-none text-dark">@TextHelper.Truncate(article.TitleAr, 100)</a></h6>
+                    <small class="text-muted d-block">@article.ArticleCategory.NameAr</small>
+                    <small class="text-muted">@article.PublishedAt?.ToString("dd/MM/yyyy")</small>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (Model.FeaturedFatawa.Any())
+{
+    <hr class="my-5">
+    <h3 class="mb-4">أهم الأسئلة</h3>
+    <div class="d-flex flex-column gap-3">
+        @{ var fatwaIndex = 0; }
+        @foreach (var q in Model.FeaturedFatawa)
+        {
+            <div class="fatwa-extra @(fatwaIndex++ >= 5 ? "d-none" : "")"><partial name="~/Views/Shared/_FatwaCard.cshtml" model="q" /></div>
+        }
+    </div>
+    <div class="text-center mt-3 d-flex gap-2 justify-content-center flex-wrap">
+        @if (Model.FeaturedFatawa.Count() > 5)
+        {
+            <button type="button" id="homeFatwaMore" class="btn btn-success px-4">عرض المزيد</button>
+        }
+        <a href="/fatawa" class="btn btn-outline-success">عرض جميع الأسئلة</a>
+    </div>
+}
+
+@section Scripts {
+<script src="~/js/fatwa.js" asp-append-version="true"></script>
+<script>
+    (function () {
+        var more = document.getElementById('homeFatwaMore');
+        if (!more) return;
+        more.addEventListener('click', function () {
+            var hidden = document.querySelectorAll('.fatwa-extra.d-none');
+            hidden.forEach(function (el, i) { if (i < 5) el.classList.remove('d-none'); });
+            window.HalalStocks.initFatwaCards(document);
+            if (document.querySelectorAll('.fatwa-extra.d-none').length === 0) more.remove();
+        });
+    })();
+
+    function setupSelectAll(selectAllId, itemClass, labelId, singularLabel) {
+        var selectAll = document.getElementById(selectAllId);
+        var items = document.querySelectorAll('.' + itemClass);
+        var label = document.getElementById(labelId);
+
+        function updateLabel() {
+            var checked = document.querySelectorAll('.' + itemClass + ':checked');
+            label.textContent = checked.length > 0 && checked.length < items.length
+                ? checked.length + ' ' + singularLabel
+                : 'الكل';
+        }
+
+        function updateSelectAll() {
+            var checked = document.querySelectorAll('.' + itemClass + ':checked');
+            selectAll.checked = items.length > 0 && checked.length === items.length;
+            selectAll.indeterminate = checked.length > 0 && checked.length < items.length;
+        }
+
+        if (selectAll) {
+            selectAll.addEventListener('change', function () {
+                items.forEach(function (cb) { cb.checked = selectAll.checked; });
+                if (!selectAll.checked) {
+                    // uncheck all = show all (no filter)
+                    items.forEach(function (cb) { cb.checked = false; });
+                }
+                updateLabel();
+            });
+        }
+
+        items.forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                updateLabel();
+                updateSelectAll();
+            });
+        });
+
+        // init state on page load
+        updateSelectAll();
+    }
+
+    setupSelectAll('categorySelectAll', 'category-check', 'categoryLabel', 'قطاع مختار');
+    setupSelectAll('indexSelectAll',    'index-check',    'indexLabel',    'مؤشر مختار');
+    setupSelectAll('puritySelectAll',   'purity-check',   'purityLabel',   'درجة مختارة');
+
+    window.HalalStocks = window.HalalStocks || {};
+    window.HalalStocks.playVideoFacade = function (el) {
+        var videoId = el.getAttribute('data-video-id');
+        var iframe = document.createElement('iframe');
+        iframe.setAttribute('loading', 'lazy');
+        iframe.setAttribute('src', 'https://www.youtube.com/embed/' + videoId + '?autoplay=1');
+        iframe.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; picture-in-picture');
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.className = 'w-100 h-100';
+        iframe.style.border = '0';
+        iframe.style.position = 'absolute';
+        iframe.style.inset = '0';
+        el.innerHTML = '';
+        el.appendChild(iframe);
+        el.removeAttribute('onclick');
+    };
+
+    // Remember whether the visitor opened the "تنبيهات هامة" panel.
+    (function () {
+        var KEY = 'kasheif.homeAlerts.open';
+        var panel  = document.getElementById('homeAlertsCollapse');
+        var toggle = document.getElementById('homeAlertsToggle');
+        if (!panel || !toggle) return;
+
+        var open = false;
+        // localStorage throws outright in some privacy modes — a disclaimer panel must never
+        // take the page's JS down with it, so every access is guarded.
+        try { open = localStorage.getItem(KEY) === '1'; } catch (e) { }
+
+        // Applied as classes rather than via bootstrap.Collapse.show() so a remembered-open
+        // panel renders already expanded instead of animating open on every page load.
+        if (open) {
+            panel.classList.add('show');
+            toggle.classList.remove('collapsed');
+            toggle.setAttribute('aria-expanded', 'true');
+        }
+
+        panel.addEventListener('shown.bs.collapse',  function () { try { localStorage.setItem(KEY, '1'); } catch (e) { } });
+        panel.addEventListener('hidden.bs.collapse', function () { try { localStorage.setItem(KEY, '0'); } catch (e) { } });
+    })();
+</script>
+}

@@ -1,0 +1,140 @@
+@model HalalStocks.Models.PortfolioRequest
+@using HalalStocks.Models
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "طلبي";
+    ViewData["NoIndex"] = true;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>طلبي</h1>
+    <a href="/portfolio-request" class="btn btn-outline-secondary">العودة للمحفظة</a>
+</div>
+
+@* Status banner *@
+<div class="alert @StatusAlertClass(Model.Status) mb-4">
+    <div class="d-flex align-items-center gap-3">
+        <span class="fs-4">@StatusIcon(Model.Status)</span>
+        <div>
+            <div class="fw-bold fs-5">@StatusBadgeLabel(Model.Status)</div>
+            <div>@StatusMessage(Model.Status)</div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header fw-bold bg-dark text-white">تفاصيل طلبك</div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-4">رقم الهاتف</dt>
+            <dd class="col-sm-8">@Model.PhoneNumber</dd>
+
+            <dt class="col-sm-4">المحافظة</dt>
+            <dd class="col-sm-8">@Model.Governorate</dd>
+
+            <dt class="col-sm-4">الإقامة</dt>
+            <dd class="col-sm-8">
+                @(Model.Residence == ResidenceType.InsideEgypt ? "داخل مصر" : $"خارج مصر — {Model.CountryOfResidence}")
+            </dd>
+
+            <dt class="col-sm-4">رأس المال</dt>
+            <dd class="col-sm-8">@Model.InvestmentCapital.ToString("N0") ج.م</dd>
+
+            <dt class="col-sm-4">الهدف الاستثماري</dt>
+            <dd class="col-sm-8">@HorizonLabel(Model.Horizon)</dd>
+
+            <dt class="col-sm-4">درجة شرعية الأسهم</dt>
+            <dd class="col-sm-8">@StockTypeLabel(Model.StockType)</dd>
+
+            <dt class="col-sm-4">طريقة التواصل</dt>
+            <dd class="col-sm-8">
+                @ContactLabel(Model.PreferredContact)
+                @if (Model.PreferredContact == ContactMethod.WhatsApp && !string.IsNullOrEmpty(Model.WhatsAppNumber))
+                { <span class="text-muted"> — @Model.WhatsAppNumber</span> }
+                @if (Model.PreferredContact == ContactMethod.Email && !string.IsNullOrEmpty(Model.ContactEmail))
+                { <span class="text-muted"> — @Model.ContactEmail</span> }
+            </dd>
+
+            <dt class="col-sm-4">إرسال العقد</dt>
+            <dd class="col-sm-8">@(Model.ContractDelivery == ContractDelivery.ElectronicMail ? "البريد الإلكتروني" : "البريد المصري")</dd>
+
+            <dt class="col-sm-4">تاريخ تقديم الطلب</dt>
+            <dd class="col-sm-8">@Model.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</dd>
+        </dl>
+    </div>
+</div>
+
+@if (Model.Status == PortfolioRequestStatus.Rejected)
+{
+    <div class="mt-4">
+        <a href="/portfolio-request" class="btn btn-success btn-lg">تقديم طلب جديد</a>
+    </div>
+}
+
+@functions {
+    string StatusAlertClass(PortfolioRequestStatus s) => s switch
+    {
+        PortfolioRequestStatus.New          => "alert-primary",
+        PortfolioRequestStatus.UnderReview  => "alert-warning",
+        PortfolioRequestStatus.Contacted    => "alert-warning",
+        PortfolioRequestStatus.ActiveClient => "alert-success",
+        PortfolioRequestStatus.Rejected     => "alert-danger",
+        _ => "alert-secondary"
+    };
+
+    string StatusIcon(PortfolioRequestStatus s) => s switch
+    {
+        PortfolioRequestStatus.New          => "🔵",
+        PortfolioRequestStatus.UnderReview  => "🟡",
+        PortfolioRequestStatus.Contacted    => "🟠",
+        PortfolioRequestStatus.ActiveClient => "🟢",
+        PortfolioRequestStatus.Rejected     => "🔴",
+        _ => "⚪"
+    };
+
+    string StatusBadgeLabel(PortfolioRequestStatus s) => s switch
+    {
+        PortfolioRequestStatus.New          => "جديد",
+        PortfolioRequestStatus.UnderReview  => "قيد المراجعة",
+        PortfolioRequestStatus.Contacted    => "تم التواصل",
+        PortfolioRequestStatus.ActiveClient => "عميل حالي",
+        PortfolioRequestStatus.Rejected     => "مرفوض",
+        _ => s.ToString()
+    };
+
+    string StatusMessage(PortfolioRequestStatus s) => s switch
+    {
+        PortfolioRequestStatus.New          => "طلبك قيد الانتظار",
+        PortfolioRequestStatus.UnderReview  => "طلبك يُراجع حالياً",
+        PortfolioRequestStatus.Contacted    => "تم التواصل معك",
+        PortfolioRequestStatus.ActiveClient => "مرحباً بك عميلاً",
+        PortfolioRequestStatus.Rejected     => "لم يتم قبول طلبك، يمكنك تقديم طلب جديد",
+        _ => ""
+    };
+
+    string HorizonLabel(InvestmentHorizon h) => h switch
+    {
+        InvestmentHorizon.ShortTerm  => "قصير الأجل (مضاربة + متاجرة)",
+        InvestmentHorizon.MediumTerm => "متوسط الأجل",
+        InvestmentHorizon.LongTerm   => "طويل الأجل",
+        _ => h.ToString()
+    };
+
+    string StockTypeLabel(StockPurityPreference p) => p switch
+    {
+        StockPurityPreference.PureOnly            => "نقية فقط",
+        StockPurityPreference.PureAndSemiPure     => "نقية + شبه نقية فقط",
+        StockPurityPreference.UpToMixedA          => "نقية + شبه نقية + مختلط A",
+        StockPurityPreference.UpToMixedB          => "نقية + شبه نقية + مختلط A و B",
+        StockPurityPreference.AllShariahCompliant => "جميع الأسهم المتوافقة مع الشريعة",
+        _ => p.ToString()
+    };
+
+    string ContactLabel(ContactMethod c) => c switch
+    {
+        ContactMethod.WhatsApp => "واتس آب",
+        ContactMethod.Phone    => "تليفون",
+        ContactMethod.Email    => "البريد الإلكتروني",
+        _ => c.ToString()
+    };
+}

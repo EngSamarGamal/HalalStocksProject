@@ -1,0 +1,102 @@
+@model HalalStocks.ViewModels.RealPortfolioIndexViewModel
+@functions {
+    static string PnlClass(decimal value) => value > 0 ? "text-success" : value < 0 ? "text-danger" : "";
+}
+
+@if (Model.PriceFetchFailed)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle ms-1"></i>
+        تعذر جلب أسعار السوق الحالية. القيم المعروضة تعتمد على آخر سعر تم حفظه.
+    </div>
+}
+
+<div class="table-responsive">
+    <table class="table table-hover table-bordered mb-0 align-middle text-center">
+        <thead class="table-dark">
+            <tr>
+                <th>تاريخ الشراء</th>
+                <th>اسم السهم</th>
+                <th>القطاع</th>
+                <th>الموقف</th>
+                <th>عدد الأسهم</th>
+                <th>سعر الشراء</th>
+                <th>القيمة الشرائية</th>
+                <th>نسبة الشراء</th>
+                <th>سعر السوق</th>
+                <th>القيمة السوقية</th>
+                <th>ربح/خسارة</th>
+                <th>ربح/خسارة للسهم</th>
+                <th>نسبة الربح/الخسارة</th>
+                <th>إجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Rows.Count == 0)
+            {
+                <tr>
+                    <td colspan="14" class="text-muted py-4">لم تقم بإضافة أي أسهم إلى محفظتك الفعلية بعد.</td>
+                </tr>
+            }
+            @foreach (var row in Model.Rows)
+            {
+                <tr>
+                    <td class="text-nowrap">@row.PurchaseDate.ToString("yyyy/MM/dd")</td>
+                    <td class="text-nowrap">@row.StockNameAr <span class="text-muted small">(@row.StockTicker)</span></td>
+                    <td>@row.SectorNameAr</td>
+                    <td><span class="badge @row.ShariahBadgeClass">@row.ShariahLabel</span></td>
+                    <td>@row.Quantity</td>
+                    <td>@row.PurchasePrice.ToString("N2")</td>
+                    <td>@row.TotalPurchase.ToString("N2")</td>
+                    <td>@row.PurchaseWeightPercent.ToString("N2")%</td>
+                    <td>
+                        @if (row.MarketPrice.HasValue)
+                        {
+                            @row.MarketPrice.Value.ToString("N2")
+                            if (row.IsPriceStale)
+                            {
+                                <i class="bi bi-clock-history text-warning ms-1"
+                                   title="آخر تحديث: @(row.MarketPriceAt?.ToLocalTime().ToString("yyyy/MM/dd HH:mm"))"></i>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
+                    <td>@(row.MarketPrice.HasValue ? row.MarketValue.ToString("N2") : "—")</td>
+                    <td class="@PnlClass(row.ProfitLoss)">@(row.MarketPrice.HasValue ? row.ProfitLoss.ToString("N2") : "—")</td>
+                    <td class="@PnlClass(row.ProfitLossPerShare)">@(row.MarketPrice.HasValue ? row.ProfitLossPerShare.ToString("N2") : "—")</td>
+                    <td class="@PnlClass(row.ProfitLossPercent)">@(row.MarketPrice.HasValue ? row.ProfitLossPercent.ToString("N2") + "%" : "—")</td>
+                    <td class="text-nowrap">
+                        <a href="@Model.BasePath/items/@row.Id/edit" class="btn btn-sm btn-outline-primary me-2">تعديل</a>
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                data-delete-item-id="@row.Id"
+                                data-delete-item-name="@row.StockNameAr">حذف</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+        @if (Model.Rows.Count > 0)
+        {
+            <tfoot>
+                <tr class="table-secondary fw-bold">
+                    <td>الإجمالي</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>@Model.InvestedCapital.ToString("N2")</td>
+                    <td>@Model.TotalPurchaseWeightPercent.ToString("N2")%</td>
+                    <td></td>
+                    <td>@Model.TotalMarketValue.ToString("N2")</td>
+                    <td class="@PnlClass(Model.TotalProfitLoss)">@Model.TotalProfitLoss.ToString("N2")</td>
+                    <td class="@PnlClass(Model.TotalProfitLossPerShare)">@Model.TotalProfitLossPerShare.ToString("N2")</td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        }
+    </table>
+</div>

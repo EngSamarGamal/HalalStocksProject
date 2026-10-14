@@ -1,0 +1,18 @@
+@model string
+@{
+    var active = Model ?? "wallet";
+    var userId = (string)ViewBag.TargetUserId;
+    var basePath = $"/admin/wallet-management/{userId}";
+}
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link @(active == "recommendations" ? "active" : "")" href="@basePath/recommendations">التوصيات</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(active == "wallet" ? "active" : "")" href="@basePath/wallet">المستشار الآلي</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(active == "portfolio" ? "active" : "")" href="@basePath/portfolio">المحفظة الفعلية</a>
+    </li>
+</ul>

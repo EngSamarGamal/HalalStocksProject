@@ -1,0 +1,65 @@
+@model AnalystProfileFormViewModel
+@{
+    ViewData["Title"] = "ملفي كمحلل";
+    ViewData["NoIndex"] = true;
+}
+
+<h2 class="mb-4">ملفي كمحلل</h2>
+
+<partial name="~/Views/Analyst/_AnalystNav.cshtml" model="@("profile")" />
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white fw-bold">النبذة التعريفية</div>
+            <div class="card-body p-4">
+                <form method="post" action="/analyst/profile" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+
+                    @if (!ViewData.ModelState.IsValid && ViewData.ModelState.ErrorCount > 0)
+                    {
+                        <div class="alert alert-danger py-2">
+                            @foreach (var entry in ViewData.ModelState.Values)
+                                @foreach (var err in entry.Errors)
+                                { <div>@err.ErrorMessage</div> }
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label asp-for="SummaryAr" class="form-label fw-semibold"></label>
+                        <textarea asp-for="SummaryAr" class="form-control" rows="5" placeholder="نبذة مختصرة عنك تظهر في صفحتك العامة"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">الصورة الشخصية</label>
+                        <input asp-for="Photo" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+                        <small class="text-muted">الحد الأقصى: 2 ميجابايت، الصيغ المقبولة: JPG, PNG, WebP</small>
+                    </div>
+
+                    <button type="submit" class="btn btn-success px-4 fw-bold">حفظ التغييرات</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white fw-bold">الصورة الحالية</div>
+            <div class="card-body p-4 text-center">
+                @if (!string.IsNullOrEmpty(Model.ExistingPhotoPath))
+                {
+                    <img src="@Model.ExistingPhotoPath" class="img-thumbnail rounded-circle mb-3" style="width:160px;height:160px;object-fit:cover" alt="الصورة الشخصية">
+                    <form method="post" action="/analyst/profile/photo/delete">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-danger btn-sm">حذف الصورة</button>
+                    </form>
+                }
+                else
+                {
+                    <i class="bi bi-person-circle text-muted" style="font-size:8rem"></i>
+                    <p class="text-muted mt-2 mb-0">لا توجد صورة شخصية بعد</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>

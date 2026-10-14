@@ -1,0 +1,223 @@
+@using HalalStocks.Helpers
+@model HalalStocks.ViewModels.Admin.AnalyticsIndexViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "التحليلات والآراء";
+}
+
+<h2 class="mb-4">التحليلات والآراء</h2>
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link @(Model.Tab == "analysts" ? "active" : "")" href="/admin/analytics?tab=analysts">
+            المحللون <span class="badge bg-secondary ms-1">@Model.AnalystsCount</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(Model.Tab == "articles" ? "active" : "")" href="/admin/analytics?tab=articles">
+            المقالات <span class="badge bg-secondary ms-1">@Model.ArticlesCount</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(Model.Tab == "pending" ? "active" : "")" href="/admin/analytics?tab=pending">
+            بانتظار المراجعة <span class="badge bg-warning text-dark ms-1">@Model.PendingCount</span>
+        </a>
+    </li>
+</ul>
+
+@if (Model.Tab == "analysts")
+{
+    @if (Model.Analysts.Any())
+    {
+        <table class="table table-hover table-bordered align-middle">
+            <thead class="table-light">
+                <tr><th>الصورة</th><th>الاسم</th><th>المقالات</th><th>بانتظار المراجعة</th><th>إجراءات</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model.Analysts)
+                {
+                    var name = UserDisplayNameHelper.DisplayName(s.Profile.User);
+                    <tr>
+                        <td>
+                            @if (!string.IsNullOrEmpty(s.Profile.PhotoPath))
+                            {
+                                <img src="@s.Profile.PhotoPath" class="rounded-circle" style="width:40px;height:40px;object-fit:cover" alt="@name">
+                            }
+                            else
+                            {
+                                <i class="bi bi-person-circle text-muted" style="font-size:1.8rem"></i>
+                            }
+                        </td>
+                        <td><a href="/admin/analytics/analysts/@s.Profile.UserId">@name</a></td>
+                        <td>@s.TotalArticles</td>
+                        <td>@(s.PendingArticles > 0 ? s.PendingArticles.ToString() : "-")</td>
+                        <td>
+                            <a href="/admin/analytics/analysts/@s.Profile.UserId" class="btn btn-sm btn-outline-primary">عرض التفاصيل</a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                                    data-bs-target="#confirmRemoveModal" data-action="/admin/analytics/analysts/@s.Profile.UserId/remove"
+                                    data-name="@name" data-articles="@s.TotalArticles">إزالة صفة المحلل</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="text-center text-muted py-5"><p>لا يوجد محللون بعد. يمكن تعيين محلل من صفحة المستخدمين.</p></div>
+    }
+}
+else
+{
+    @if (Model.Articles.Any())
+    {
+        <table class="table table-hover table-bordered align-middle">
+            <thead class="table-light">
+                <tr><th>العنوان</th><th>المحلل</th><th>الحالة</th><th>تاريخ الإنشاء</th><th>إجراءات</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model.Articles)
+                {
+                    var (label, badgeClass) = ArticleApprovalStatusHelper.Badge(a.ApprovalStatus);
+                    var authorName = UserDisplayNameHelper.DisplayName(a.Author);
+                    <tr>
+                        <td><a href="/admin/analytics/articles/@a.Id">@a.TitleAr</a></td>
+                        <td><a href="/admin/analytics/analysts/@a.AuthorId">@authorName</a></td>
+                        <td><span class="badge @badgeClass">@label</span></td>
+                        <td>@a.CreatedAt.ToString("dd/MM/yyyy")</td>
+                        <td>
+                            @if (a.ApprovalStatus == HalalStocks.Models.ArticleApprovalStatus.Pending)
+                            {
+                                <form method="post" action="/admin/analytics/articles/@a.Id/approve" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-outline-success">موافقة</button>
+                                </form>
+                            }
+                            @if (a.ApprovalStatus is HalalStocks.Models.ArticleApprovalStatus.Pending or HalalStocks.Models.ArticleApprovalStatus.Approved)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal"
+                                        data-bs-target="#hideModal" data-action="/admin/analytics/articles/@a.Id/hide" data-name="@a.TitleAr">إخفاء</button>
+                            }
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                                    data-bs-target="#confirmDeleteModal" data-action="/admin/analytics/articles/@a.Id/delete" data-name="@a.TitleAr">حذف</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="text-center text-muted py-5">
+            <p>@(Model.Tab == "pending" ? "لا توجد مقالات بانتظار المراجعة." : "لا توجد مقالات تحليلية بعد.")</p>
+        </div>
+    }
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                @for (int i = 1; i <= Model.TotalPages; i++)
+                {
+                    <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                        <a class="page-link" href="?tab=@Model.Tab&page=@i">@i</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+}
+
+<!-- Delete confirmation -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" id="confirmDeleteForm">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">تأكيد الحذف</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">هل أنت متأكد من حذف «<span id="deleteItemName"></span>»؟</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">حذف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Hide with reason -->
+<div class="modal fade" id="hideModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" id="hideForm">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">إخفاء المقال</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>سيتم إخفاء «<span id="hideItemName"></span>» حتى يقوم المحلل بتعديله وتوافق عليه الإدارة مجدداً.</p>
+                    <label class="form-label fw-semibold">سبب الإخفاء *</label>
+                    <textarea name="reason" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-warning">إخفاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Remove analyst confirmation -->
+<div class="modal fade" id="confirmRemoveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" id="confirmRemoveForm">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">إزالة صفة المحلل</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    هل أنت متأكد من إزالة صفة المحلل عن «<span id="removeItemName"></span>»؟
+                    <span id="removeItemArticlesNote"></span>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">إزالة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('confirmDeleteModal').addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        document.getElementById('confirmDeleteForm').action = btn.getAttribute('data-action');
+        document.getElementById('deleteItemName').textContent = btn.getAttribute('data-name');
+    });
+
+    document.getElementById('hideModal').addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        document.getElementById('hideForm').action = btn.getAttribute('data-action');
+        document.getElementById('hideItemName').textContent = btn.getAttribute('data-name');
+    });
+
+    document.getElementById('confirmRemoveModal').addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        document.getElementById('confirmRemoveForm').action = btn.getAttribute('data-action');
+        document.getElementById('removeItemName').textContent = btn.getAttribute('data-name');
+        var count = parseInt(btn.getAttribute('data-articles'), 10);
+        var note = document.getElementById('removeItemArticlesNote');
+        note.textContent = count > 0
+            ? ' لديه ' + count + ' مقال — ستبقى مقالاته كما هي ويمكن إدارتها من هنا، لكنه لن يستطيع الوصول لملفه كمحلل.'
+            : '';
+    });
+</script>
+}

@@ -1,0 +1,632 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery _antiforgery
+@{
+    ViewData["Title"] = "حاسبة تطهير رأس المال";
+    var _csrfToken = _antiforgery.GetAndStoreTokens(Context).RequestToken!;
+    var autoEditId = ViewBag.EditId as int?;
+}
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <h2 class="mb-0">حاسبة تطهير رأس المال</h2>
+</div>
+
+@* Admin-editable (admin/instructions); a cleared editor means no intro block at all. *@
+@if (ViewBag.Instructions is string _instructions && !string.IsNullOrWhiteSpace(_instructions))
+{
+    <div class="text-muted mb-4 calculator-instructions">@Html.Raw(_instructions)</div>
+}
+
+@* Sits above the sections on purpose: it fires the moment a stock with incomplete data is picked,
+   and the user must not have to scroll past three blank cards to find out why nothing happened. *@
+<div id="missingDataAlert" class="alert alert-warning d-none"></div>
+
+<!-- ── القسم الأول: موقف المساهم ─────────────────────────────── -->
+<div class="card shadow-sm mb-4">
+    <div id="formCardHeader" class="card-header bg-success text-white fw-bold">موقف المساهم</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6" data-field="StockId">
+                <label class="form-label fw-semibold">السهم <span class="text-danger">*</span></label>
+                <div class="position-relative">
+                    <input type="text" id="stockSearchInput" class="form-control" autocomplete="off"
+                           placeholder="ابحث بالكود أو باسم السهم">
+                    <div id="stockSuggestions" class="list-group position-absolute w-100 shadow d-none"
+                         style="z-index:1060; max-height:260px; overflow-y:auto;"></div>
+                </div>
+                <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6" data-field="OwnedShares">
+                <label class="form-label fw-semibold">ضع عدد أسهمك التي تمتلكها <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="number" id="ownedSharesInput" class="form-control" min="1" step="1" placeholder="0">
+                    <span class="input-group-text">سهم</span>
+                </div>
+                <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6" data-field="HoldingDays">
+                <label class="form-label fw-semibold">عدد أيام الاحتفاظ بالسهم <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="number" id="holdingDaysInput" class="form-control" min="1" step="1" placeholder="0">
+                    <span class="input-group-text">يوم</span>
+                </div>
+                <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label text-muted">إجمالي أسهم الشركة</label>
+                <input type="text" id="totalSharesDisplay" class="form-control" dir="ltr" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label text-muted">نسبتك في الشركة (%)</label>
+                <input type="text" id="ownershipPercentDisplay" class="form-control fw-bold" dir="ltr" readonly>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── القسم الثاني: حصتك من إجمالي رأس المال ─────────────────── -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white fw-bold">حساب حصتك من إجمالي رأس المال</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label text-muted">إجمالي أصول الشركة (جنيه)</label>
+                <input type="text" id="totalAssetsDisplay" class="form-control" dir="ltr" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label text-muted">حصتك من إجمالي رأس المال (جنيه)</label>
+                <input type="text" id="capitalShareDisplay" class="form-control fw-bold" dir="ltr" readonly>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── القسم الثالث: نصيب رأس مالك الموجه للاستثمار الربوي ────── -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white fw-bold">حساب نصيب رأس مالك الموجه للإستثمار الربوي</div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label text-muted">نسبة الأنشطة الربوية (%)</label>
+                <input type="text" id="ribaRatioDisplay" class="form-control" dir="ltr" readonly>
+            </div>
+            <div class="col-md-6 text-center">
+                <div class="small text-muted">المبلغ السنوي: <span id="annualAmountDisplay" dir="ltr">—</span> جنيه</div>
+                <div class="small text-muted mb-1"><span id="proRataFactorDisplay">—</span></div>
+                <div class="text-muted mb-1">مبلغ تطهير رأس المال</div>
+                <div id="purificationAmountDisplay" class="display-6 fw-bold text-success" dir="ltr">—</div>
+                <div class="text-muted small">جنيه</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex gap-2 mb-5">
+    <button type="button" id="saveBtn" class="btn btn-success fw-bold px-4">حفظ النتيجة</button>
+    <button type="button" id="cancelEditBtn" class="btn btn-outline-secondary d-none">إلغاء التعديل</button>
+</div>
+
+<!-- ── جدول: لم يتم سدادها ───────────────────────────────────── -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-warning text-dark fw-bold">لم يتم سدادها</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>رمز السهم</th>
+                        <th>اسم السهم</th>
+                        <th class="text-end">مبلغ التطهير (جنيه)</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="unpaidBody">
+                    <tr><td colspan="5" class="text-center text-muted py-3">جاري التحميل...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── جدول: تم سدادها ───────────────────────────────────────── -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-secondary text-white fw-bold">تم سدادها</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>رمز السهم</th>
+                        <th>اسم السهم</th>
+                        <th class="text-end">مبلغ التطهير (جنيه)</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="paidBody">
+                    <tr><td colspan="5" class="text-center text-muted py-3">جاري التحميل...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── النوافذ المنبثقة ──────────────────────────────────────── -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تأكيد الحذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+            <div class="modal-body">
+                هل أنت متأكد من حذف سجل <span class="fw-bold" id="deleteItemName"></span> نهائياً؟
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">حذف</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="infoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تنبيه</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+            <div class="modal-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <style>
+        .invalid-feedback { display: block; color: #dc3545; font-size: 0.875em; min-height: 0; }
+        .form-control.is-invalid, .form-select.is-invalid { border-color: #dc3545; }
+        #stockSuggestions .list-group-item.active { background-color: #198754; border-color: #198754; color: #fff; }
+    </style>
+
+    <script>
+        (function () {
+            const csrfToken = '@_csrfToken';
+            let autoEditId = @(autoEditId.HasValue ? autoEditId.Value.ToString() : "null");
+
+            const stockSearchInput = document.getElementById('stockSearchInput');
+            const stockSuggestions = document.getElementById('stockSuggestions');
+            const ownedSharesInput = document.getElementById('ownedSharesInput');
+            const holdingDaysInput = document.getElementById('holdingDaysInput');
+            const annualAmountDisplay = document.getElementById('annualAmountDisplay');
+            const proRataFactorDisplay = document.getElementById('proRataFactorDisplay');
+            const totalSharesDisplay = document.getElementById('totalSharesDisplay');
+            const ownershipPercentDisplay = document.getElementById('ownershipPercentDisplay');
+            const totalAssetsDisplay = document.getElementById('totalAssetsDisplay');
+            const capitalShareDisplay = document.getElementById('capitalShareDisplay');
+            const ribaRatioDisplay = document.getElementById('ribaRatioDisplay');
+            const purificationAmountDisplay = document.getElementById('purificationAmountDisplay');
+            const missingDataAlert = document.getElementById('missingDataAlert');
+            const saveBtn = document.getElementById('saveBtn');
+            const cancelEditBtn = document.getElementById('cancelEditBtn');
+            const formCardHeader = document.getElementById('formCardHeader');
+
+            let selectedStock = null;   // { id, ticker, nameAr, totalShares, totalAssets, ribaRatio }
+            let editingId = null;
+            let records = [];
+            let pendingDeleteId = null;
+            let suggestions = [];
+            let highlightIndex = -1;
+            let searchTimer = null;
+
+            // ── Helpers ───────────────────────────────────────────────
+            // Western digits throughout — 'ar-EG' would render Arabic-Indic numerals (٤٠٬٠٠٠).
+            function fmt(n) {
+                return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function fmtInt(n) {
+                return Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+            }
+
+            function showModal(message) {
+                const modalEl = document.getElementById('infoModal');
+                if (!modalEl || typeof bootstrap === 'undefined') return;
+                modalEl.querySelector('.modal-body').textContent = message;
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+
+            function setFieldState(fieldName, message) {
+                const wrapper = document.querySelector('[data-field="' + fieldName + '"]');
+                if (!wrapper) return;
+                const control = wrapper.querySelector('.form-control, .form-select');
+                const feedback = wrapper.querySelector('.invalid-feedback');
+                if (message) {
+                    if (control) control.classList.add('is-invalid');
+                    if (feedback) feedback.textContent = message;
+                } else {
+                    if (control) control.classList.remove('is-invalid');
+                    if (feedback) feedback.textContent = '';
+                }
+            }
+
+            function missingFields() {
+                if (!selectedStock) return [];
+                const missing = [];
+                if (selectedStock.totalShares === null || selectedStock.totalShares <= 0) missing.push('إجمالي أسهم الشركة');
+                if (selectedStock.totalAssets === null) missing.push('إجمالي أصول الشركة');
+                if (selectedStock.ribaRatio === null) missing.push('نسبة الأنشطة الربوية');
+                return missing;
+            }
+
+            // ── Calculation ───────────────────────────────────────────
+            function updateCalculations() {
+                const owned = parseInt(ownedSharesInput.value, 10);
+                const hasOwned = !isNaN(owned) && owned > 0;
+                const days = parseInt(holdingDaysInput.value, 10);
+                const hasDays = !isNaN(days) && days > 0;
+
+                totalSharesDisplay.value = (selectedStock && selectedStock.totalShares !== null)
+                    ? fmtInt(selectedStock.totalShares) : '';
+                totalAssetsDisplay.value = (selectedStock && selectedStock.totalAssets !== null)
+                    ? fmt(selectedStock.totalAssets) : '';
+                ribaRatioDisplay.value = (selectedStock && selectedStock.ribaRatio !== null)
+                    ? fmt(selectedStock.ribaRatio) : '';
+
+                const missing = missingFields();
+                if (selectedStock && missing.length) {
+                    missingDataAlert.textContent =
+                        'لا يمكن إتمام الحساب: البيانات التالية غير متوفرة لهذا السهم — ' + missing.join('، ') + '.';
+                    missingDataAlert.classList.remove('d-none');
+                } else {
+                    missingDataAlert.classList.add('d-none');
+                }
+
+                const canCompute = selectedStock && !missing.length && hasOwned && hasDays;
+                if (!canCompute) {
+                    ownershipPercentDisplay.value = '';
+                    capitalShareDisplay.value = '';
+                    annualAmountDisplay.textContent = '—';
+                    proRataFactorDisplay.textContent = '—';
+                    purificationAmountDisplay.textContent = '—';
+                    saveBtn.disabled = !!(selectedStock && missing.length);
+                    return;
+                }
+
+                const percent = owned / selectedStock.totalShares * 100;
+                const capitalShare = selectedStock.totalAssets * percent / 100;
+                // Mirrors the server: the annual basis is rounded once, then pro-rated by the
+                // holding period, so client and server agree to the cent.
+                const annual = Math.round(capitalShare * selectedStock.ribaRatio / 100 * 100) / 100;
+                const purification = Math.round(annual * days / 365 * 100) / 100;
+
+                ownershipPercentDisplay.value = percent.toLocaleString('en-US',
+                    { minimumFractionDigits: 2, maximumFractionDigits: 6 }) + '%';
+                capitalShareDisplay.value = fmt(capitalShare);
+                annualAmountDisplay.textContent = fmt(annual);
+                proRataFactorDisplay.textContent = '× ' + fmtInt(days) + ' يوم ÷ 365';
+                purificationAmountDisplay.textContent = fmt(purification);
+                saveBtn.disabled = false;
+            }
+
+            function validateForm() {
+                let hasError = false;
+
+                if (!selectedStock) {
+                    setFieldState('StockId', 'يرجى اختيار السهم.');
+                    hasError = true;
+                } else if (missingFields().length) {
+                    setFieldState('StockId', 'بيانات هذا السهم غير مكتملة.');
+                    hasError = true;
+                } else {
+                    setFieldState('StockId', '');
+                }
+
+                const owned = parseInt(ownedSharesInput.value, 10);
+                if (isNaN(owned) || owned <= 0) {
+                    setFieldState('OwnedShares', 'يرجى إدخال عدد الأسهم التي تمتلكها.');
+                    hasError = true;
+                } else if (selectedStock && selectedStock.totalShares && owned > selectedStock.totalShares) {
+                    setFieldState('OwnedShares', 'عدد الأسهم التي تمتلكها أكبر من إجمالي أسهم الشركة.');
+                    hasError = true;
+                } else {
+                    setFieldState('OwnedShares', '');
+                }
+
+                const days = parseInt(holdingDaysInput.value, 10);
+                if (isNaN(days) || days <= 0) {
+                    setFieldState('HoldingDays', 'يرجى إدخال عدد أيام الاحتفاظ بالسهم.');
+                    hasError = true;
+                } else if (days > 36500) {
+                    setFieldState('HoldingDays', 'عدد أيام الاحتفاظ بالسهم غير منطقي.');
+                    hasError = true;
+                } else {
+                    setFieldState('HoldingDays', '');
+                }
+
+                return !hasError;
+            }
+
+            function refresh() { updateCalculations(); }
+
+            // ── Stock picker ──────────────────────────────────────────
+            function stockLabel(s) { return s.ticker + ' — ' + s.nameAr; }
+
+            function hideSuggestions() {
+                stockSuggestions.classList.add('d-none');
+                stockSuggestions.innerHTML = '';
+                suggestions = [];
+                highlightIndex = -1;
+            }
+
+            function renderSuggestions(list) {
+                suggestions = list;
+                highlightIndex = -1;
+                if (!list.length) {
+                    stockSuggestions.innerHTML = '<div class="list-group-item text-muted">لا توجد نتائج</div>';
+                } else {
+                    stockSuggestions.innerHTML = list.map(function (s, i) {
+                        return '<button type="button" class="list-group-item list-group-item-action text-end" data-suggestion="' + i + '">' +
+                            '<strong dir="ltr">' + s.ticker + '</strong> — ' + s.nameAr + '</button>';
+                    }).join('');
+                }
+                stockSuggestions.classList.remove('d-none');
+            }
+
+            function moveHighlight(delta) {
+                if (!suggestions.length) return;
+                highlightIndex = (highlightIndex + delta + suggestions.length) % suggestions.length;
+                const items = stockSuggestions.querySelectorAll('[data-suggestion]');
+                items.forEach(function (el, i) { el.classList.toggle('active', i === highlightIndex); });
+                if (items[highlightIndex]) items[highlightIndex].scrollIntoView({ block: 'nearest' });
+            }
+
+            function pickSuggestion(index) {
+                const s = suggestions[index];
+                if (!s) return;
+                selectedStock = s;
+                stockSearchInput.value = stockLabel(s);
+                hideSuggestions();
+                refresh();
+            }
+
+            stockSearchInput.addEventListener('input', function () {
+                // Any edit to the text invalidates the current selection, so a stale stock
+                // can never be saved against text the user has since changed.
+                selectedStock = null;
+                refresh();
+
+                const term = stockSearchInput.value.trim();
+                clearTimeout(searchTimer);
+                if (!term) { hideSuggestions(); return; }
+
+                searchTimer = setTimeout(function () {
+                    fetch('/api/stocks/capital-search?q=' + encodeURIComponent(term))
+                        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+                        .then(renderSuggestions)
+                        .catch(function () { hideSuggestions(); });
+                }, 250);
+            });
+
+            stockSearchInput.addEventListener('keydown', function (e) {
+                if (e.key === 'ArrowDown') { e.preventDefault(); moveHighlight(1); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); moveHighlight(-1); }
+                else if (e.key === 'Enter' && highlightIndex >= 0) { e.preventDefault(); pickSuggestion(highlightIndex); }
+                else if (e.key === 'Escape') { hideSuggestions(); }
+            });
+
+            // mousedown fires before blur, so the click still lands on the item.
+            stockSuggestions.addEventListener('mousedown', function (e) {
+                const item = e.target.closest('[data-suggestion]');
+                if (!item) return;
+                e.preventDefault();
+                pickSuggestion(parseInt(item.getAttribute('data-suggestion'), 10));
+            });
+
+            // Loads a stock's figures by id and fills the picker (used by edit mode).
+            function selectStockById(id, ticker, nameAr) {
+                return fetch('/api/stocks/capital-search?q=' + encodeURIComponent(ticker))
+                    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+                    .then(function (data) {
+                        const match = data.find(function (s) { return s.id === id; });
+                        if (!match) return;
+                        selectedStock = match;
+                        stockSearchInput.value = stockLabel(match);
+                    })
+                    .catch(function () { showModal('تعذّر تحميل بيانات السهم.'); });
+            }
+
+            // ── Save / update ─────────────────────────────────────────
+            function postJson(url, method, body) {
+                return fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
+                    body: body ? JSON.stringify(body) : undefined
+                });
+            }
+
+            saveBtn.addEventListener('click', function () {
+                if (!validateForm()) return;
+
+                const payload = {
+                    stockId: selectedStock.id,
+                    ownedShares: parseInt(ownedSharesInput.value, 10),
+                    holdingDays: parseInt(holdingDaysInput.value, 10)
+                };
+                const url = editingId ? '/capital-purification/' + editingId : '/capital-purification/save';
+                const method = editingId ? 'PUT' : 'POST';
+
+                postJson(url, method, payload)
+                    .then(function (r) {
+                        if (r.ok) return null;
+                        return r.json()
+                            .then(function (d) { return Promise.reject(d && d.error ? d.error : 'تعذّر حفظ النتيجة.'); })
+                            .catch(function (msg) {
+                                return Promise.reject(typeof msg === 'string' ? msg : 'تعذّر حفظ النتيجة.');
+                            });
+                    })
+                    .then(function () {
+                        cancelEdit();
+                        resetForm();
+                        loadRecords();
+                    })
+                    .catch(function (msg) {
+                        showModal(typeof msg === 'string' ? msg : 'تعذّر حفظ النتيجة، يرجى المحاولة مرة أخرى.');
+                    });
+            });
+
+            function resetForm() {
+                selectedStock = null;
+                ownedSharesInput.value = '';
+                holdingDaysInput.value = '';
+                stockSearchInput.value = '';
+                hideSuggestions();
+                setFieldState('StockId', '');
+                setFieldState('OwnedShares', '');
+                setFieldState('HoldingDays', '');
+                refresh();
+            }
+
+            function startEdit(record) {
+                editingId = record.id;
+                ownedSharesInput.value = record.ownedShares;
+                holdingDaysInput.value = record.holdingDays;
+                formCardHeader.className = 'card-header bg-warning text-dark fw-bold';
+                formCardHeader.textContent = 'موقف المساهم — تعديل سجل محفوظ';
+                saveBtn.textContent = 'حفظ التعديل';
+                cancelEditBtn.classList.remove('d-none');
+                selectStockById(record.stockId, record.ticker, record.nameAr).then(function () {
+                    refresh();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            }
+
+            function cancelEdit() {
+                editingId = null;
+                formCardHeader.className = 'card-header bg-success text-white fw-bold';
+                formCardHeader.textContent = 'موقف المساهم';
+                saveBtn.textContent = 'حفظ النتيجة';
+                cancelEditBtn.classList.add('d-none');
+            }
+
+            cancelEditBtn.addEventListener('click', function () {
+                cancelEdit();
+                resetForm();
+            });
+
+            // ── Records tables ────────────────────────────────────────
+            function rowHtml(r, paid) {
+                const date = new Date(r.createdAt).toLocaleDateString('en-GB');
+                let actions = '';
+                if (paid) {
+                    actions =
+                        '<button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-unpay="' + r.id + '">لم يتم السداد</button>' +
+                        '<button type="button" class="btn btn-sm btn-outline-danger" data-delete="' + r.id + '">حذف</button>';
+                } else {
+                    // The stock may have been deleted since; the snapshot still reads fine, but it
+                    // can no longer be reloaded into the calculator.
+                    if (r.stockId !== null) {
+                        actions += '<button type="button" class="btn btn-sm btn-outline-warning ms-1" data-edit="' + r.id + '">تعديل</button>';
+                    }
+                    actions +=
+                        '<button type="button" class="btn btn-sm btn-success ms-1" data-pay="' + r.id + '">تم السداد</button>' +
+                        '<button type="button" class="btn btn-sm btn-outline-danger" data-delete="' + r.id + '">حذف</button>';
+                }
+                return '<tr>' +
+                    '<td>' + date + '</td>' +
+                    '<td><strong>' + r.ticker + '</strong></td>' +
+                    '<td>' + r.nameAr + '</td>' +
+                    '<td class="text-end fw-bold" dir="ltr">' + fmt(r.purificationAmount) + '</td>' +
+                    '<td class="text-nowrap">' + actions + '</td>' +
+                    '</tr>';
+            }
+
+            function renderTables() {
+                const unpaid = records.filter(function (r) { return !r.isPaid; });
+                const paid = records.filter(function (r) { return r.isPaid; });
+
+                document.getElementById('unpaidBody').innerHTML = unpaid.length
+                    ? unpaid.map(function (r) { return rowHtml(r, false); }).join('')
+                    : '<tr><td colspan="5" class="text-center text-muted py-3">لا توجد مبالغ غير مسدَّدة</td></tr>';
+
+                document.getElementById('paidBody').innerHTML = paid.length
+                    ? paid.map(function (r) { return rowHtml(r, true); }).join('')
+                    : '<tr><td colspan="5" class="text-center text-muted py-3">لا توجد مبالغ مسدَّدة</td></tr>';
+            }
+
+            function loadRecords() {
+                return fetch('/capital-purification/records')
+                    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+                    .then(function (data) {
+                        records = data;
+                        renderTables();
+                        if (autoEditId) {
+                            const rec = records.find(function (x) { return x.id === autoEditId; });
+                            autoEditId = null;
+                            if (rec) startEdit(rec);
+                        }
+                    })
+                    .catch(function () {
+                        document.getElementById('unpaidBody').innerHTML =
+                            '<tr><td colspan="5" class="text-center text-danger py-3">تعذّر تحميل السجلات</td></tr>';
+                        document.getElementById('paidBody').innerHTML =
+                            '<tr><td colspan="5" class="text-center text-danger py-3">تعذّر تحميل السجلات</td></tr>';
+                    });
+            }
+
+            function togglePaid(id) {
+                postJson('/capital-purification/' + id + '/toggle-paid', 'POST')
+                    .then(function (r) { return r.ok ? loadRecords() : Promise.reject(r.status); })
+                    .catch(function () { showModal('تعذّر تحديث حالة السداد، يرجى المحاولة مرة أخرى.'); });
+            }
+
+            // Event delegation covers both tables, which are re-rendered on every change.
+            document.addEventListener('click', function (e) {
+                if (!e.target.closest('#stockSuggestions, #stockSearchInput')) hideSuggestions();
+
+                const btn = e.target.closest('[data-edit],[data-pay],[data-unpay],[data-delete]');
+                if (!btn) return;
+
+                if (btn.hasAttribute('data-edit')) {
+                    const rec = records.find(function (x) { return x.id === parseInt(btn.getAttribute('data-edit'), 10); });
+                    if (rec) startEdit(rec);
+                } else if (btn.hasAttribute('data-pay')) {
+                    togglePaid(parseInt(btn.getAttribute('data-pay'), 10));
+                } else if (btn.hasAttribute('data-unpay')) {
+                    togglePaid(parseInt(btn.getAttribute('data-unpay'), 10));
+                } else if (btn.hasAttribute('data-delete')) {
+                    const id = parseInt(btn.getAttribute('data-delete'), 10);
+                    const rec = records.find(function (x) { return x.id === id; });
+                    pendingDeleteId = id;
+                    document.getElementById('deleteItemName').textContent = rec ? (rec.ticker + ' — ' + rec.nameAr) : '';
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmDeleteModal')).show();
+                }
+            });
+
+            document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+                if (!pendingDeleteId) return;
+                const id = pendingDeleteId;
+                pendingDeleteId = null;
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmDeleteModal')).hide();
+                postJson('/capital-purification/' + id + '/delete', 'POST')
+                    .then(function (r) {
+                        if (!r.ok) return Promise.reject(r.status);
+                        if (editingId === id) { cancelEdit(); resetForm(); }
+                        return loadRecords();
+                    })
+                    .catch(function () { showModal('تعذّر حذف السجل، يرجى المحاولة مرة أخرى.'); });
+            });
+
+            // ── Wiring ────────────────────────────────────────────────
+            ownedSharesInput.addEventListener('input', refresh);
+            ownedSharesInput.addEventListener('change', refresh);
+            holdingDaysInput.addEventListener('input', refresh);
+            holdingDaysInput.addEventListener('change', refresh);
+
+            refresh();
+            loadRecords();
+        })();
+    </script>
+}

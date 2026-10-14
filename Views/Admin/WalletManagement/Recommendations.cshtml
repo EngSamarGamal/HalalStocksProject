@@ -1,0 +1,47 @@
+@model HalalStocks.ViewModels.RecommendationsIndexViewModel
+@using HalalStocks.Models
+@using HalalStocks.ViewModels
+@{
+    Layout = "_WalletManagementLayout";
+    ViewData["Title"] = "التوصيات";
+}
+
+<h3 class="mt-2 mb-3">التوصيات</h3>
+
+<partial name="~/Views/Admin/WalletManagement/_ManagementNavTabs.cshtml" model="@("recommendations")" />
+
+<p class="text-muted">
+    عرض للتوصيات كما تظهر لهذا المستخدم — للاطلاع فقط، لا يمكن التعديل من هنا.
+</p>
+
+<h5 class="mt-4 mb-3">التوصيات العامة</h5>
+@if (!Model.Recommendations.Any())
+{
+    <div class="alert alert-info">لا توجد توصيات حالياً.</div>
+}
+else
+{
+    <partial name="~/Views/Recommendations/_RecommendationTable.cshtml" model="@(new RecommendationTableViewModel
+    {
+        SectionKey = "general",
+        PurityGradeLabels = Model.PurityGradeLabels,
+        Recommendations = Model.Recommendations.Cast<RecommendationBase>().ToList(),
+        CanManage = false
+    })" />
+}
+
+<h5 class="mt-4 mb-3">توصياته الخاصة</h5>
+@if (!Model.PrivateRecommendations.Any())
+{
+    <div class="alert alert-info">لا توجد توصيات خاصة لهذا المستخدم.</div>
+}
+else
+{
+    <partial name="~/Views/Recommendations/_RecommendationTable.cshtml" model="@(new RecommendationTableViewModel
+    {
+        SectionKey = "private",
+        PurityGradeLabels = Model.PrivatePurityGradeLabels,
+        Recommendations = Model.PrivateRecommendations.Cast<RecommendationBase>().ToList(),
+        CanManage = false
+    })" />
+}

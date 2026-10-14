@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /api/
+Disallow: /error/
+
+Sitemap: https://kasheif.com/sitemap.xml

@@ -1,0 +1,263 @@
+@model HalalStocks.ViewModels.EditCalculationViewModel
+@{ ViewData["Title"] = "تعديل الحساب"; }
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="/calculations/@Model.Id" class="btn btn-outline-secondary btn-sm">→ رجوع</a>
+    <h2 class="mb-0">تعديل الحساب</h2>
+</div>
+
+<form method="post" action="/calculations/@Model.Id/edit" id="editForm">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="Id" value="@Model.Id" />
+
+    <!-- Title -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark fw-bold">معلومات الحساب</div>
+        <div class="card-body">
+            <label class="form-label fw-semibold">عنوان الحساب (اختياري)</label>
+            <input type="text" name="Title" value="@Model.Title" class="form-control" placeholder="مثال: محفظتي أبريل 2026">
+        </div>
+    </div>
+
+    <!-- Add new stock -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-success text-white fw-bold">الأسهم</div>
+        <div class="card-body border-bottom pb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">السهم</label>
+                    <select id="newStockSelect" class="form-select" style="width:100%">
+                        <option value="">-- اختر السهم --</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">عدد الأسهم</label>
+                    <input type="number" id="newQty" class="form-control" placeholder="مثال: 100" min="1" step="1">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">قيمة الشراء (ج.م)</label>
+                    <input type="number" id="newBuy" class="form-control" placeholder="50000" min="0" step="any">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">قيمة البيع (ج.م)</label>
+                    <input type="number" id="newSell" class="form-control" placeholder="65000" min="0" step="any">
+                </div>
+                <div class="col-md-3">
+                    <button type="button" id="addRowBtn" class="btn btn-success w-100">+ إضافة</button>
+                </div>
+                <div class="col-12"><hr class="my-0"><small class="text-muted">بيانات إضافية — اختياري</small></div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">تاريخ الشراء</label>
+                    <input type="date" id="newBuyDate" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">رقم فاتورة الشراء</label>
+                    <input type="text" id="newBuyInvoice" class="form-control" placeholder="اختياري" dir="ltr">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">تاريخ البيع</label>
+                    <input type="date" id="newSellDate" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">رقم فاتورة البيع</label>
+                    <input type="text" id="newSellInvoice" class="form-control" placeholder="اختياري" dir="ltr">
+                </div>
+                <div class="col-12">
+                    <label class="form-label text-muted">ملاحظات</label>
+                    <input type="text" id="newNotes" class="form-control" placeholder="اختياري">
+                </div>
+            </div>
+            <div id="addError" class="alert alert-danger mt-3 mb-0 d-none"></div>
+        </div>
+
+        <!-- Entries table -->
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle mb-0" id="editTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>السهم</th>
+                            <th>عدد</th>
+                            <th>شراء (ج.م)</th>
+                            <th>بيع (ج.م)</th>
+                            <th>ربح (ج.م)</th>
+                            <th>نسبة %</th>
+                            <th>تطهير (ج.م)</th>
+                            <th>تاريخ الشراء</th>
+                            <th>فاتورة الشراء</th>
+                            <th>تاريخ البيع</th>
+                            <th>فاتورة البيع</th>
+                            <th>ملاحظات</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="editTbody">
+                        @for (int i = 0; i < Model.Entries.Count; i++)
+                        {
+                            var e = Model.Entries[i];
+                            var profit = e.Sell - e.Buy;
+                            var purif  = profit * (e.Ratio / 100m);
+                            <tr data-ratio="@e.Ratio">
+                                <td>
+                                    <div class="fw-bold">@e.Ticker</div>
+                                    <small class="text-muted">@e.NameAr</small>
+                                    <input type="hidden" name="Entries[@i].Ticker" value="@e.Ticker" />
+                                    <input type="hidden" name="Entries[@i].NameAr"  value="@e.NameAr" />
+                                    <input type="hidden" name="Entries[@i].Ratio"   value="@e.Ratio" />
+                                </td>
+                                <td><input type="number" name="Entries[@i].StockQuantity" value="@e.StockQuantity" class="form-control form-control-sm" style="min-width:80px" min="1" step="1" placeholder="اختياري"></td>
+                                <td><input type="number" name="Entries[@i].Buy"  value="@e.Buy"  class="form-control form-control-sm" style="min-width:110px" step="any" min="0" data-col="buy"></td>
+                                <td><input type="number" name="Entries[@i].Sell" value="@e.Sell" class="form-control form-control-sm" style="min-width:110px" step="any" min="0" data-col="sell"></td>
+                                <td><span class="profit-display fw-bold">@profit.ToString("N2")</span></td>
+                                <td class="text-center">@e.Ratio%</td>
+                                <td><span class="purif-display fw-bold text-success">@purif.ToString("N2")</span></td>
+                                <td><input type="date"   name="Entries[@i].BuyDate"          value="@(e.BuyDate?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm" style="min-width:130px"></td>
+                                <td><input type="text"   name="Entries[@i].BuyInvoiceNumber"  value="@e.BuyInvoiceNumber"  class="form-control form-control-sm" style="min-width:110px" placeholder="اختياري" dir="ltr"></td>
+                                <td><input type="date"   name="Entries[@i].SellDate"          value="@(e.SellDate?.ToString("yyyy-MM-dd"))" class="form-control form-control-sm" style="min-width:130px"></td>
+                                <td><input type="text"   name="Entries[@i].SellInvoiceNumber" value="@e.SellInvoiceNumber" class="form-control form-control-sm" style="min-width:110px" placeholder="اختياري" dir="ltr"></td>
+                                <td><input type="text"   name="Entries[@i].Notes"             value="@e.Notes"             class="form-control form-control-sm" style="min-width:120px" placeholder="اختياري"></td>
+                                <td><button type="button" class="btn btn-sm btn-outline-danger delete-row">🗑</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div id="emptyMsg" class="text-center text-muted py-3 @(Model.Entries.Count > 0 ? "d-none" : "")">لا توجد أسهم — أضف سهماً من الأعلى.</div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-3">
+        <button type="submit" class="btn btn-success px-5 fw-bold">حفظ التعديلات</button>
+        <a href="/calculations/@Model.Id" class="btn btn-outline-secondary px-4">إلغاء</a>
+    </div>
+</form>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.rtl.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    var stocks = [];
+
+    $(function () {
+        $('#newStockSelect').select2({
+            theme: 'bootstrap-5',
+            placeholder: '-- اختر السهم --',
+            allowClear: true,
+            language: { noResults: function(){ return 'لا توجد نتائج'; }, searching: function(){ return 'جاري البحث...'; } }
+        });
+    });
+
+    fetch('/api/stocks/purifiable')
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            stocks = data;
+            var sel = document.getElementById('newStockSelect');
+            data.forEach(function(s){
+                var opt = new Option(s.ticker + ' — ' + s.nameAr + ' (' + s.purificationRatio + '%)', s.ticker, false, false);
+                sel.appendChild(opt);
+            });
+            $(sel).trigger('change');
+        });
+
+    // ── Recalculate profit/purification for a row ──────────────────────
+    function recalcRow(tr) {
+        var buy   = parseFloat(tr.querySelector('[data-col="buy"]').value)  || 0;
+        var sell  = parseFloat(tr.querySelector('[data-col="sell"]').value) || 0;
+        var ratio = parseFloat(tr.dataset.ratio) || 0;
+        var profit = sell - buy;
+        var purif  = profit > 0 ? profit * (ratio / 100) : 0;
+        var fmt = function(n){ return n.toLocaleString('ar-EG', {minimumFractionDigits:2, maximumFractionDigits:2}); };
+        tr.querySelector('.profit-display').textContent = fmt(profit);
+        tr.querySelector('.purif-display').textContent  = fmt(purif);
+    }
+
+    // ── Re-index all rows so Entries[0..N] names stay sequential ──────
+    function reindexRows() {
+        var rows = document.querySelectorAll('#editTbody tr');
+        rows.forEach(function(tr, i) {
+            tr.querySelectorAll('input').forEach(function(inp) {
+                if (inp.name) inp.name = inp.name.replace(/Entries\[\d+\]/, 'Entries[' + i + ']');
+            });
+            tr.querySelectorAll('[data-col]').forEach(function(inp){ inp.dataset.row = i; });
+        });
+        document.getElementById('emptyMsg').classList.toggle('d-none', rows.length > 0);
+    }
+
+    // ── Attach live recalc to buy/sell inputs ──────────────────────────
+    function attachRecalc(tr) {
+        tr.querySelectorAll('[data-col="buy"], [data-col="sell"]').forEach(function(inp){
+            inp.addEventListener('input', function(){ recalcRow(tr); });
+        });
+    }
+
+    // attach to existing rows
+    document.querySelectorAll('#editTbody tr').forEach(attachRecalc);
+
+    // ── Delete row ─────────────────────────────────────────────────────
+    document.getElementById('editTbody').addEventListener('click', function(e){
+        if (e.target.closest('.delete-row')) {
+            e.target.closest('tr').remove();
+            reindexRows();
+        }
+    });
+
+    // ── Add new row ────────────────────────────────────────────────────
+    document.getElementById('addRowBtn').addEventListener('click', function(){
+        var err    = document.getElementById('addError');
+        var ticker = document.getElementById('newStockSelect').value;
+        var buy    = parseFloat(document.getElementById('newBuy').value);
+        var sell   = parseFloat(document.getElementById('newSell').value);
+
+        err.classList.add('d-none');
+        if (!ticker)                  { err.textContent = 'يرجى اختيار السهم.';                           err.classList.remove('d-none'); return; }
+        if (isNaN(buy)  || buy  <= 0) { err.textContent = 'يرجى إدخال قيمة الشراء.';                      err.classList.remove('d-none'); return; }
+        if (isNaN(sell) || sell <= 0) { err.textContent = 'يرجى إدخال قيمة البيع.';                       err.classList.remove('d-none'); return; }
+        var stock = stocks.find(function(s){ return s.ticker === ticker; });
+        if (!stock) return;
+
+        var profit = sell - buy;
+        var purif  = profit > 0 ? profit * (stock.purificationRatio / 100) : 0;
+        var fmt    = function(n){ return n.toLocaleString('ar-EG', {minimumFractionDigits:2, maximumFractionDigits:2}); };
+        var idx    = document.querySelectorAll('#editTbody tr').length;
+
+        var qty         = document.getElementById('newQty').value         || '';
+        var buyDate     = document.getElementById('newBuyDate').value    || '';
+        var buyInvoice  = document.getElementById('newBuyInvoice').value || '';
+        var sellDate    = document.getElementById('newSellDate').value   || '';
+        var sellInvoice = document.getElementById('newSellInvoice').value|| '';
+        var notes       = document.getElementById('newNotes').value      || '';
+
+        var p = 'Entries[' + idx + ']';
+        var tr = document.createElement('tr');
+        tr.dataset.ratio = stock.purificationRatio;
+        tr.innerHTML =
+            '<td><div class="fw-bold">' + stock.ticker + '</div><small class="text-muted">' + stock.nameAr + '</small>' +
+                '<input type="hidden" name="' + p + '.Ticker" value="' + stock.ticker + '">' +
+                '<input type="hidden" name="' + p + '.NameAr"  value="' + stock.nameAr + '">' +
+                '<input type="hidden" name="' + p + '.Ratio"   value="' + stock.purificationRatio + '">' +
+            '</td>' +
+            '<td><input type="number" name="' + p + '.StockQuantity" value="' + qty  + '" class="form-control form-control-sm" style="min-width:80px" min="1" step="1" placeholder="اختياري"></td>' +
+            '<td><input type="number" name="' + p + '.Buy"  value="' + buy  + '" class="form-control form-control-sm" style="min-width:110px" step="any" min="0" data-col="buy"></td>' +
+            '<td><input type="number" name="' + p + '.Sell" value="' + sell + '" class="form-control form-control-sm" style="min-width:110px" step="any" min="0" data-col="sell"></td>' +
+            '<td><span class="profit-display fw-bold">' + fmt(profit) + '</span></td>' +
+            '<td class="text-center">' + stock.purificationRatio + '%</td>' +
+            '<td><span class="purif-display fw-bold text-success">' + fmt(purif) + '</span></td>' +
+            '<td><input type="date" name="' + p + '.BuyDate"          value="' + buyDate     + '" class="form-control form-control-sm" style="min-width:130px"></td>' +
+            '<td><input type="text" name="' + p + '.BuyInvoiceNumber"  value="' + buyInvoice  + '" class="form-control form-control-sm" style="min-width:110px" placeholder="اختياري" dir="ltr"></td>' +
+            '<td><input type="date" name="' + p + '.SellDate"          value="' + sellDate    + '" class="form-control form-control-sm" style="min-width:130px"></td>' +
+            '<td><input type="text" name="' + p + '.SellInvoiceNumber" value="' + sellInvoice + '" class="form-control form-control-sm" style="min-width:110px" placeholder="اختياري" dir="ltr"></td>' +
+            '<td><input type="text" name="' + p + '.Notes"             value="' + notes       + '" class="form-control form-control-sm" style="min-width:120px" placeholder="اختياري"></td>' +
+            '<td><button type="button" class="btn btn-sm btn-outline-danger delete-row">🗑</button></td>';
+
+        document.getElementById('editTbody').appendChild(tr);
+        attachRecalc(tr);
+        document.getElementById('emptyMsg').classList.add('d-none');
+
+        // reset add form
+        $('#newStockSelect').val('').trigger('change');
+        ['newBuy','newSell','newQty','newBuyDate','newBuyInvoice','newSellDate','newSellInvoice','newNotes'].forEach(function(id){ document.getElementById(id).value = ''; });
+    });
+</script>
+}

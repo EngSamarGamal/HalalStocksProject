@@ -1,0 +1,113 @@
+@model IEnumerable<HalalStocks.Models.ArticleCategory>
+@using HalalStocks.Services.Interfaces
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "تصنيفات المقالات";
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>تصنيفات المقالات</h2>
+    <a href="/admin/article-categories/create" class="btn btn-primary">+ إضافة تصنيف</a>
+</div>
+<table class="table table-hover table-bordered">
+    <thead class="table-primary">
+        <tr><th>الاسم</th><th>عدد المقالات</th><th>إجراءات</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var cat in Model)
+        {
+            var isDefault = cat.Id == IArticleService.DefaultCategoryId;
+            var isAutoAssigned = cat.AutoAssignedForType != null;
+            <tr>
+                <td>
+                    @cat.NameAr
+                    @if (isDefault)
+                    {
+                        <span class="badge bg-secondary">افتراضي</span>
+                    }
+                    @if (isAutoAssigned)
+                    {
+                        <span class="badge bg-info">تصنيف تلقائي</span>
+                    }
+                </td>
+                <td>@cat.Articles.Count</td>
+                <td>
+                    <a href="/admin/article-categories/edit/@cat.Id" class="btn btn-sm btn-outline-primary">تعديل</a>
+                    @if (isDefault || isAutoAssigned)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
+                                data-bs-target="#defaultProtectedModal">حذف</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                                data-bs-target="#confirmDeleteModal" data-action="/admin/article-categories/delete/@cat.Id" data-name="@cat.NameAr">حذف</button>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" id="confirmDeleteForm">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">تأكيد الحذف</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">هل أنت متأكد من حذف «<span id="deleteItemName"></span>»؟</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">حذف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="defaultProtectedModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تنبيه</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">لا يمكن حذف هذا التصنيف لأنه محمي (افتراضي أو مخصص تلقائياً لنوع مقالات معين)</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteInfoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تنبيه</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">@TempData["DeleteError"]</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('confirmDeleteModal').addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        document.getElementById('confirmDeleteForm').action = btn.getAttribute('data-action');
+        document.getElementById('deleteItemName').textContent = btn.getAttribute('data-name');
+    });
+
+    @if (TempData["DeleteError"] != null)
+    {
+        <text>new bootstrap.Modal(document.getElementById('deleteInfoModal')).show();</text>
+    }
+</script>
+}

@@ -1,0 +1,223 @@
+@model HalalStocks.Models.CalculationSession
+@{ ViewData["Title"] = Model.Title ?? "تفاصيل الحساب";
+   bool hasOptional  = Model.Entries.Any(e => e.BuyDate.HasValue || e.SellDate.HasValue || e.BuyInvoiceNumber != null || e.SellInvoiceNumber != null);
+   bool hasQty       = Model.Entries.Any(e => e.StockQuantity.HasValue);
+   bool hasNotes     = Model.Entries.Any(e => e.Notes != null); }
+
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+    <a href="/calculations" class="btn btn-outline-secondary btn-sm">→ رجوع</a>
+    <h2 class="mb-0 flex-grow-1">@(Model.Title ?? "حساب بدون عنوان")</h2>
+    <span class="text-muted small">@Model.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</span>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-3">
+                <div class="text-muted small">عدد الأسهم</div>
+                <div class="fw-bold fs-5">@Model.Entries.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-3">
+                <div class="text-muted small">إجمالي الأرباح</div>
+                <div class="fw-bold fs-5">@Model.TotalProfit.ToString("N2") <small class="text-muted fs-6">ج.م</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card text-center shadow-sm border-success">
+            <div class="card-body py-3">
+                <div class="text-muted small">مبلغ التطهير</div>
+                <div class="fw-bold fs-5 text-success">@Model.TotalPurification.ToString("N2") <small class="text-muted fs-6">ج.م</small></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-success">
+                    <tr>
+                        <th>رمز السهم</th>
+                        <th>اسم السهم</th>
+                        <th class="text-end">الشراء (ج.م)</th>
+                        <th class="text-end">البيع (ج.م)</th>
+                        <th class="text-end">الربح (ج.م)</th>
+                        <th class="text-end">النسبة</th>
+                        <th class="text-end">التطهير (ج.م)</th>
+                        @if (hasQty)       { <th class="text-end">عدد الأسهم</th> }
+                        @if (hasOptional)
+                        {
+                            <th>تاريخ الشراء</th>
+                            <th>فاتورة الشراء</th>
+                            <th>تاريخ البيع</th>
+                            <th>فاتورة البيع</th>
+                        }
+                        @if (hasNotes)     { <th>ملاحظات</th> }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var e in Model.Entries)
+                    {
+                        <tr>
+                            <td class="fw-bold">@e.Ticker</td>
+                            <td>@e.NameAr</td>
+                            <td class="text-end" dir="ltr">@e.Buy.ToString("N2")</td>
+                            <td class="text-end" dir="ltr">@e.Sell.ToString("N2")</td>
+                            <td class="text-end" dir="ltr">@e.Profit.ToString("N2")</td>
+                            <td class="text-end" dir="ltr">@e.Ratio.ToString("N2")%</td>
+                            <td class="text-end fw-bold text-success" dir="ltr">@e.Purification.ToString("N2")</td>
+                            @if (hasQty)      { <td class="text-end text-muted small">@(e.StockQuantity?.ToString() ?? "—")</td> }
+                            @if (hasOptional)
+                            {
+                                <td class="text-muted small">@(e.BuyDate?.ToString("yyyy/MM/dd") ?? "—")</td>
+                                <td class="text-muted small" dir="ltr">@(e.BuyInvoiceNumber ?? "—")</td>
+                                <td class="text-muted small">@(e.SellDate?.ToString("yyyy/MM/dd") ?? "—")</td>
+                                <td class="text-muted small" dir="ltr">@(e.SellInvoiceNumber ?? "—")</td>
+                            }
+                            @if (hasNotes)    { <td class="text-muted small">@(e.Notes ?? "—")</td> }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex gap-3 flex-wrap">
+    <form method="post" action="/calculations/@Model.Id/toggle-paid">
+        @Html.AntiForgeryToken()
+        @if (Model.IsPaid)
+        {
+            <button class="btn btn-outline-secondary">↩ إلغاء تأكيد السداد</button>
+        }
+        else
+        {
+            <button class="btn btn-success fw-bold">✓ تم سداد مبلغ التطهير</button>
+        }
+    </form>
+    <a href="/calculations/@Model.Id/edit" class="btn btn-outline-warning">تعديل</a>
+    <button type="button" id="printBtn" class="btn btn-outline-primary">طباعة</button>
+    <form method="post" action="/calculations/@Model.Id/delete" onsubmit="return confirm('حذف هذا الحساب نهائياً؟')">
+        @Html.AntiForgeryToken()
+        <button class="btn btn-outline-danger">حذف الحساب</button>
+    </form>
+</div>
+
+<script id="calc-data" type="application/json">
+@Html.Raw(Json.Serialize(new {
+    title  = Model.Title ?? "حساب بدون عنوان",
+    date   = Model.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm"),
+    profit = Model.TotalProfit.ToString("N2"),
+    purif  = Model.TotalPurification.ToString("N2"),
+    count  = Model.Entries.Count,
+    isPaid = Model.IsPaid,
+    entries = Model.Entries.Select(e => new {
+        ticker      = e.Ticker,
+        nameAr      = e.NameAr,
+        buy         = e.Buy.ToString("N2"),
+        sell        = e.Sell.ToString("N2"),
+        profit      = e.Profit.ToString("N2"),
+        ratio       = e.Ratio.ToString("N2"),
+        purif       = e.Purification.ToString("N2"),
+        qty         = e.StockQuantity != null ? e.StockQuantity.ToString() : "—",
+        buyDate     = e.BuyDate != null ? e.BuyDate.Value.ToString("yyyy/MM/dd") : "—",
+        buyInvoice  = e.BuyInvoiceNumber ?? "—",
+        sellDate    = e.SellDate != null ? e.SellDate.Value.ToString("yyyy/MM/dd") : "—",
+        sellInvoice = e.SellInvoiceNumber ?? "—",
+        notes       = e.Notes ?? "—"
+    })
+}))
+</script>
+<script>
+    document.getElementById('printBtn').addEventListener('click', function () {
+        var d = JSON.parse(document.getElementById('calc-data').textContent);
+
+        var rows = '';
+        d.entries.forEach(function (e) {
+            rows +=
+                '<tr>' +
+                '<td>' + e.ticker + '</td>' +
+                '<td>' + e.nameAr + '</td>' +
+                '<td>' + (e.qty   || '—') + '</td>' +
+                '<td>' + e.buy    + '</td>' +
+                '<td>' + e.sell   + '</td>' +
+                '<td>' + e.profit + '</td>' +
+                '<td>' + e.ratio  + '%</td>' +
+                '<td style="color:#198754;font-weight:bold">' + e.purif + '</td>' +
+                '<td>' + (e.buyDate    || '—') + '</td>' +
+                '<td>' + (e.buyInvoice || '—') + '</td>' +
+                '<td>' + (e.sellDate   || '—') + '</td>' +
+                '<td>' + (e.sellInvoice|| '—') + '</td>' +
+                '<td style="color:#555">' + (e.notes || '—') + '</td>' +
+                '</tr>';
+        });
+
+        var win = window.open('', '_blank');
+        if (!win) { alert('يرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم حاول مرة أخرى.'); return; }
+
+        var origin   = window.location.origin;
+        var pageRule = String.fromCharCode(64) + 'page{size:A4 landscape;margin:8mm}';
+
+        var doc = win.document;
+        doc.open();
+        doc.write('<!DOCTYPE html>');
+        doc.write('<html dir="rtl" lang="ar">');
+        doc.write('<head>');
+        doc.write('<meta charset="UTF-8">');
+        doc.write('<title>' + d.title + '</title>');
+        doc.write('<style>');
+        doc.write('html,body{margin:0;padding:0;}');
+        doc.write('body{font-family:Arial,Tahoma,sans-serif;direction:rtl;padding:8mm;font-size:9pt;color:#000;}');
+        doc.write('.hdr{text-align:center;margin-bottom:8pt;}');
+        doc.write('.logo{width:42pt;height:42pt;border-radius:50%;border:1.5pt solid #198754;object-fit:cover;}');
+        doc.write('.site{font-size:13pt;font-weight:bold;color:#198754;margin:2pt 0 1pt;}');
+        doc.write('.ttl{font-size:10pt;font-weight:bold;}');
+        doc.write('.dt{font-size:8pt;color:#666;margin-top:1pt;}');
+        doc.write('.paid{color:green;font-weight:bold;}');
+        doc.write('table{width:100%;border-collapse:collapse;margin-top:7pt;table-layout:fixed;}');
+        doc.write('th{background:#198754;color:#fff;padding:5pt 3pt;border:0.5pt solid #999;text-align:center;font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact;}');
+        doc.write('td{padding:4pt 3pt;border:0.5pt solid #ccc;text-align:center;font-size:8pt;}');
+        doc.write('tfoot td{background:#f0faf4;font-weight:bold;-webkit-print-color-adjust:exact;print-color-adjust:exact;}');
+        doc.write('.note{font-size:7pt;color:#555;border-top:0.5pt solid #ddd;padding-top:5pt;margin-top:6pt;}');
+        doc.write(pageRule);
+        doc.write('</style>');
+        doc.write('</head>');
+        doc.write('<body>');
+        doc.write('<div class="hdr">');
+        doc.write('<img src="' + origin + '/logo3.jpeg" class="logo" alt="كاشف">');
+        doc.write('<div class="site">كاشف</div>');
+        doc.write('<div class="ttl">' + d.title + '</div>');
+        doc.write('<div class="dt">' + d.date + (d.isPaid ? ' &nbsp;|&nbsp; <span class="paid">&#x2713; تم السداد</span>' : '') + '</div>');
+        doc.write('</div>');
+        doc.write('<table>');
+        doc.write('<colgroup>');
+        doc.write('<col style="width:6%"><col style="width:12%"><col style="width:5%"><col style="width:8%"><col style="width:8%">');
+        doc.write('<col style="width:8%"><col style="width:6%"><col style="width:8%"><col style="width:8%">');
+        doc.write('<col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:7%">');
+        doc.write('</colgroup>');
+        doc.write('<thead><tr>');
+        doc.write('<th>رمز السهم</th><th>اسم السهم</th><th>عدد</th>');
+        doc.write('<th>الشراء (ج.م)</th><th>البيع (ج.م)</th><th>الربح (ج.م)</th><th>النسبة</th><th>التطهير (ج.م)</th>');
+        doc.write('<th>ت. الشراء</th><th>فاتورة الشراء</th><th>ت. البيع</th><th>فاتورة البيع</th><th>ملاحظات</th>');
+        doc.write('</tr></thead>');
+        doc.write('<tbody>' + rows + '</tbody>');
+        doc.write('<tfoot><tr>');
+        doc.write('<td colspan="5" style="text-align:right;padding-right:5pt">الإجمالي</td>');
+        doc.write('<td>' + d.profit + '</td>');
+        doc.write('<td></td>');
+        doc.write('<td style="color:#198754">' + d.purif + '</td>');
+        doc.write('<td colspan="5"></td>');
+        doc.write('</tr></tfoot>');
+        doc.write('</table>');
+        doc.write('<p class="note">ملاحظة: يُنصح بصرف مبلغ التطهير في وجوه الخير والصدقات</p>');
+        doc.close();
+        win.focus();
+        setTimeout(function () { win.print(); }, 400);
+    });
+</script>

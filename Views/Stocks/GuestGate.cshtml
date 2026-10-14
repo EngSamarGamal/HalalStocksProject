@@ -1,0 +1,43 @@
+@model HalalStocks.Models.Stock
+@{
+    ViewData["Title"] = Model.NameAr;
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-7 col-lg-6">
+
+        <!-- Stock identity teaser -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body d-flex align-items-center gap-3 p-4">
+                <div class="bg-success bg-opacity-10 rounded p-3 text-center" style="min-width:72px">
+                    <span class="fw-bold text-success fs-5">@Model.TickerSymbol</span>
+                </div>
+                <div>
+                    <h5 class="mb-1 fw-bold">@Model.NameAr</h5>
+                    @if (!string.IsNullOrEmpty(Model.NameEn))
+                    {
+                        <div class="text-muted small" dir="ltr">@Model.NameEn</div>
+                    }
+                    <span class="badge bg-secondary mt-1">@Model.Category?.NameAr</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gate prompt -->
+        <div class="card shadow border-0">
+            <div class="card-body text-center p-5">
+                <div class="mb-3" style="font-size:2.5rem">🔒</div>
+                <h4 class="fw-bold mb-2">سجّل حسابك لعرض التفاصيل</h4>
+                <p class="text-muted mb-4">
+                    الحكم الشرعي، درجة النقاء، نسبة التطهير، والنسب الشرعية التفصيلية
+                    متاحة للأعضاء المسجّلين فقط — والتسجيل مجاني تماماً.
+                </p>
+                <div class="d-flex gap-3 justify-content-center flex-wrap">
+                    <a href="/account/register" class="btn btn-success btn-lg px-5 fw-bold">إنشاء حساب مجاني</a>
+                    <a href="/account/login?returnUrl=/stocks/@Model.TickerSymbol" class="btn btn-outline-secondary btn-lg px-4">تسجيل الدخول</a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

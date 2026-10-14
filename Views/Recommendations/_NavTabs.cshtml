@@ -1,0 +1,16 @@
+@model string
+@{
+    var active = Model ?? "recommendations";
+}
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link @(active == "recommendations" ? "active" : "")" href="/recommendations">التوصيات</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(active == "wallet" ? "active" : "")" href="/recommendations/wallet">المستشار الآلي</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(active == "portfolio" ? "active" : "")" href="/recommendations/portfolio">المحفظة الفعلية</a>
+    </li>
+</ul>

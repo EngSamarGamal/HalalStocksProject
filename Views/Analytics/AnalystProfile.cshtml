@@ -1,0 +1,75 @@
+@model AnalystPublicProfileViewModel
+@{
+    ViewData["Title"] = Model.Name;
+    if (!string.IsNullOrWhiteSpace(Model.SummaryAr))
+        ViewData["Description"] = Model.SummaryAr.Length <= 160 ? Model.SummaryAr : Model.SummaryAr[..160];
+    if (!string.IsNullOrEmpty(Model.PhotoPath))
+        ViewData["OgImage"] = Model.PhotoPath;
+}
+
+<a href="/analytics" class="btn btn-outline-secondary mb-4">← كل التحليلات</a>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            @if (!string.IsNullOrEmpty(Model.PhotoPath))
+            {
+                <img src="@Model.PhotoPath" class="rounded-circle" style="width:100px;height:100px;object-fit:cover" alt="@Model.Name">
+            }
+            else
+            {
+                <i class="bi bi-person-circle text-secondary" style="font-size:5rem"></i>
+            }
+            <div class="flex-grow-1">
+                <h2 class="mb-2">@Model.Name</h2>
+                @if (!string.IsNullOrWhiteSpace(Model.SummaryAr))
+                {
+                    <p class="text-muted mb-0">@Model.SummaryAr</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4 class="mb-3">مقالات المحلل</h4>
+
+<form method="get" action="/analysts/@Model.UserId" class="row g-2 mb-4">
+    <div class="col-12 col-md-9">
+        <input type="search" name="search" value="@Model.Search" class="form-control" placeholder="ابحث في مقالات هذا المحلل..." autocomplete="off">
+    </div>
+    <div class="col-12 col-md-3">
+        <button type="submit" class="btn btn-success w-100">بحث</button>
+    </div>
+</form>
+
+@if (Model.Articles.Any())
+{
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+        @foreach (var card in Model.Articles)
+        {
+            <div class="col">
+                <partial name="~/Views/Shared/_AnalyticalArticleCard.cshtml" model="card" />
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="text-center text-muted py-5">
+        <p>@(string.IsNullOrWhiteSpace(Model.Search) ? "لا توجد مقالات منشورة لهذا المحلل بعد." : "لا توجد مقالات مطابقة.")</p>
+    </div>
+}
+
+@if (Model.TotalPages > 1)
+{
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            @for (int i = 1; i <= Model.TotalPages; i++)
+            {
+                <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                    <a class="page-link" href="?page=@i&search=@Model.Search">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

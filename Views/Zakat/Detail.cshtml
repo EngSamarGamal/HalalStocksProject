@@ -1,0 +1,196 @@
+@model HalalStocks.Models.ZakatRecord
+@{
+    ViewData["Title"] = "تفاصيل سجل الزكاة";
+    ViewData["NoIndex"] = true;
+    var statusLabels = new[] {
+        "بلوغ النصاب و بدء الحول",
+        "لم يبلغ النصاب",
+        "بداية حول جديد",
+        "انتهاء الحول",
+        "متابعة سريان الحول",
+        "—"
+    };
+    var statusLabel = (int)Model.Status < statusLabels.Length ? statusLabels[(int)Model.Status] : "";
+}
+
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+    <a href="/zakat" class="btn btn-outline-secondary btn-sm">→ رجوع</a>
+    <h2 class="mb-0 flex-grow-1">تفاصيل سجل الزكاة</h2>
+    <span class="text-muted small">@Model.EntryDate.ToString("yyyy/MM/dd")</span>
+</div>
+
+<!-- Summary cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-3">
+                <div class="text-muted small">إجمالي المحفظة</div>
+                <div class="fw-bold fs-5">@Model.TotalPortfolio.ToString("N2") <small class="text-muted fs-6">ج.م</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card text-center shadow-sm">
+            <div class="card-body py-3">
+                <div class="text-muted small">النصاب (85 جرام ذهب عيار 21)</div>
+                <div class="fw-bold fs-5">@Model.NisabValue.ToString("N2") <small class="text-muted fs-6">ج.م</small></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card text-center shadow-sm @(Model.ReachedNisab ? "border-success" : "border-danger")">
+            <div class="card-body py-3">
+                <div class="text-muted small">مبلغ الزكاة</div>
+                @if (Model.ReachedNisab)
+                {
+                    <div class="fw-bold fs-5 text-success">@Model.ZakatAmount?.ToString("N2") <small class="text-muted fs-6">ج.م</small></div>
+                }
+                else
+                {
+                    <div class="fw-bold fs-6 text-danger">لا زكاة مستحقة</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail card -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold @(Model.ReachedNisab ? "bg-success text-white" : "bg-secondary text-white")">
+        @(Model.ReachedNisab ? "مستحقة للزكاة ✅" : "غير مستحقة للزكاة ❌")
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-sm-6 col-md-4">
+                <div class="text-muted small">رصيد النقد</div>
+                <div class="fw-semibold">@Model.CashBalance.ToString("N2") ج.م</div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+                <div class="text-muted small">القيمة السوقية للأسهم</div>
+                <div class="fw-semibold">@Model.StocksMarketValue.ToString("N2") ج.م</div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+                <div class="text-muted small">سعر جرام الذهب عيار 21</div>
+                <div class="fw-semibold">@Model.GoldGramPrice21K.ToString("N2") ج.م</div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+                <div class="text-muted small">نسبة الزكاة</div>
+                <div class="fw-semibold">@Model.ZakatRate%</div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+                <div class="text-muted small">التاريخ الميلادي</div>
+                <div class="fw-semibold">@Model.EntryDate.ToString("yyyy/MM/dd")</div>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.HijriDate))
+            {
+                <div class="col-sm-6 col-md-4">
+                    <div class="text-muted small">التاريخ الهجري</div>
+                    <div class="fw-semibold" dir="ltr">@Model.HijriDate</div>
+                </div>
+            }
+            <div class="col-sm-6 col-md-4">
+                <div class="text-muted small">حالة الإدخال</div>
+                <div class="fw-semibold">@statusLabel</div>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Notes))
+            {
+                <div class="col-12">
+                    <div class="text-muted small">ملاحظات</div>
+                    <div class="fw-semibold">@Model.Notes</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="d-flex gap-3 flex-wrap">
+    <button type="button" id="printBtn" class="btn btn-outline-primary">طباعة</button>
+    <a href="/zakat?edit=@Model.Id" class="btn btn-outline-warning">تعديل</a>
+    <form method="post" action="/zakat/@Model.Id/delete" onsubmit="return confirm('حذف هذا السجل نهائياً؟')">
+        @Html.AntiForgeryToken()
+        <button class="btn btn-outline-danger">حذف السجل</button>
+    </form>
+</div>
+
+<!-- Print data -->
+<script id="zakat-detail-data" type="application/json">
+@Html.Raw(Json.Serialize(new {
+    entryDate     = Model.EntryDate.ToString("yyyy/MM/dd"),
+    hijriDate     = Model.HijriDate,
+    cashBalance   = Model.CashBalance.ToString("N2"),
+    stocksValue   = Model.StocksMarketValue.ToString("N2"),
+    totalPortfolio= Model.TotalPortfolio.ToString("N2"),
+    goldPrice     = Model.GoldGramPrice21K.ToString("N2"),
+    nisabValue    = Model.NisabValue.ToString("N2"),
+    zakatRate     = Model.ZakatRate.ToString("N2"),
+    zakatAmount   = Model.ZakatAmount.HasValue ? Model.ZakatAmount.Value.ToString("N2") : null,
+    reachedNisab  = Model.ReachedNisab,
+    statusLabel   = statusLabel,
+    notes         = Model.Notes
+}))
+</script>
+<script>
+    document.getElementById('printBtn').addEventListener('click', function () {
+        var d = JSON.parse(document.getElementById('zakat-detail-data').textContent);
+
+        var zakatLine = d.reachedNisab
+            ? '<div class="zakat-val">' + d.zakatAmount + ' ج.م</div><div class="rate">النسبة: ' + d.zakatRate + '%</div>'
+            : '<div class="no-zakat">المحفظة لم تبلغ النصاب — لا زكاة مستحقة</div>';
+
+        var win = window.open('', '_blank');
+        if (!win) { alert('يرجى السماح بالنوافذ المنبثقة لهذا الموقع ثم حاول مرة أخرى.'); return; }
+
+        var origin   = window.location.origin;
+        var pageRule = String.fromCharCode(64) + 'page{size:A4;margin:10mm}';
+
+        var doc = win.document;
+        doc.open();
+        doc.write('<!DOCTYPE html>');
+        doc.write('<html dir="rtl" lang="ar">');
+        doc.write('<head><meta charset="UTF-8"><title>تقرير زكاة الأسهم</title>');
+        doc.write('<style>');
+        doc.write('html,body{margin:0;padding:0}');
+        doc.write('body{font-family:Arial,Tahoma,sans-serif;direction:rtl;padding:10mm;font-size:10pt;color:#000}');
+        doc.write('.hdr{text-align:center;margin-bottom:10pt}');
+        doc.write('.logo{width:44pt;height:44pt;border-radius:50%;border:1.5pt solid #198754;object-fit:cover}');
+        doc.write('.site{font-size:14pt;font-weight:bold;color:#198754;margin:3pt 0 1pt}');
+        doc.write('.ttl{font-size:11pt;font-weight:bold}');
+        doc.write('.dt{font-size:8pt;color:#666;margin-top:2pt}');
+        doc.write('.summary{border:1pt solid #ddd;border-radius:4pt;padding:12pt 16pt;margin:12pt 0}');
+        doc.write('.summary table{width:100%;border-collapse:collapse}');
+        doc.write('.summary td{padding:5pt 8pt;font-size:10pt}');
+        doc.write('.summary td:last-child{text-align:left;font-weight:bold;direction:ltr}');
+        doc.write('.zakat-box{text-align:center;margin:14pt 0;padding:12pt;background:#f0faf4;border-radius:4pt}');
+        doc.write('.zakat-label{font-size:10pt;color:#555;margin-bottom:4pt}');
+        doc.write('.zakat-val{font-size:22pt;font-weight:bold;color:#198754}');
+        doc.write('.rate{font-size:9pt;color:#888;margin-top:3pt}');
+        doc.write('.no-zakat{font-size:12pt;color:#888;padding:10pt}');
+        doc.write('.footer{font-size:8pt;color:#777;border-top:0.5pt solid #ddd;padding-top:6pt;margin-top:14pt;text-align:center}');
+        doc.write(pageRule);
+        doc.write('</style></head><body>');
+        doc.write('<div class="hdr">');
+        doc.write('<img src="' + origin + '/logo3.jpeg" class="logo" alt="كاشف">');
+        doc.write('<div class="site">كاشف</div>');
+        doc.write('<div class="ttl">تقرير زكاة الأسهم</div>');
+        doc.write('<div class="dt">التاريخ: ' + d.entryDate + (d.hijriDate ? ' | الهجري: ' + d.hijriDate : '') + '</div>');
+        doc.write('</div>');
+        doc.write('<div class="summary"><table>');
+        doc.write('<tr><td>رصيد النقد</td><td>' + d.cashBalance + ' ج.م</td></tr>');
+        doc.write('<tr><td>القيمة السوقية للأسهم</td><td>' + d.stocksValue + ' ج.م</td></tr>');
+        doc.write('<tr><td>إجمالي المحفظة</td><td>' + d.totalPortfolio + ' ج.م</td></tr>');
+        doc.write('<tr><td>سعر جرام الذهب عيار 21</td><td>' + d.goldPrice + ' ج.م</td></tr>');
+        doc.write('<tr><td>النصاب (85 جرام)</td><td>' + d.nisabValue + ' ج.م</td></tr>');
+        doc.write('<tr><td>الحالة</td><td>' + d.statusLabel + '</td></tr>');
+        if (d.notes) doc.write('<tr><td>ملاحظات</td><td>' + d.notes + '</td></tr>');
+        doc.write('</table></div>');
+        doc.write('<div class="zakat-box">');
+        doc.write('<div class="zakat-label">قيمة الزكاة المستحقة</div>');
+        doc.write(zakatLine);
+        doc.write('</div>');
+        doc.write('<div class="footer">تذكير: الزكاة ركن من أركان الإسلام، أدِّها في وقتها</div>');
+        doc.close();
+        win.focus();
+        setTimeout(function () { win.print(); }, 400);
+    });
+</script>

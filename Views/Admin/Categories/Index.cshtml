@@ -1,0 +1,30 @@
+@model IEnumerable<HalalStocks.Models.StockCategory>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إدارة الفئات";
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>الفئات</h2>
+    <a href="/admin/categories/create" class="btn btn-primary">+ إضافة فئة</a>
+</div>
+<table class="table table-hover table-bordered">
+    <thead class="table-primary">
+        <tr><th>الاسم بالعربية</th><th>الوصف</th><th>إجراءات</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var cat in Model)
+        {
+            <tr>
+                <td>@cat.NameAr</td>
+                <td>@cat.Description</td>
+                <td>
+                    <a href="/admin/categories/edit/@cat.Id" class="btn btn-sm btn-outline-primary">تعديل</a>
+                    <form method="post" action="/admin/categories/delete/@cat.Id" class="d-inline" onsubmit="return confirm('هل أنت متأكد؟')">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

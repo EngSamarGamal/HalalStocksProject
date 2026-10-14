@@ -1,0 +1,61 @@
+@model List<HalalStocks.Models.RecommendationType>
+@using HalalStocks.Models
+@{
+    ViewData["Title"] = "أنواع التوصيات";
+    ViewData["NoIndex"] = true;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h2 class="mb-0">إدارة أنواع التوصيات</h2>
+    <a href="/recommendations" class="btn btn-outline-secondary">← العودة</a>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="post" action="/recommendations/types" class="row g-3 align-items-end">
+            @Html.AntiForgeryToken()
+            <div class="col-md-7">
+                <label class="form-label">اسم النوع بالعربية</label>
+                <input type="text" name="nameAr" class="form-control" required />
+            </div>
+            <div class="col-md-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="isExpiredMarker" value="true" id="isExpiredMarker">
+                    <label class="form-check-label" for="isExpiredMarker">علامة منتهية</label>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-success w-100">إضافة</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>الاسم</th>
+                    <th>علامة منتهية</th>
+                    <th>إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var type in Model)
+                {
+                    <tr>
+                        <td>@type.NameAr</td>
+                        <td>@(type.IsExpiredMarker ? "نعم" : "لا")</td>
+                        <td>
+                            <form method="post" action="/recommendations/types/@type.Id/delete" class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا النوع؟');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

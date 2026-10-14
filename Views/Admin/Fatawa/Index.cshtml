@@ -1,0 +1,108 @@
+@model HalalStocks.ViewModels.Admin.FatwaListViewModel
+@using HalalStocks.Models
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "فتاوى المال";
+
+    var tabs = new (FatwaStatus? Value, string Label, int Count)[]
+    {
+        (null, "الكل", Model.AllCount),
+        (FatwaStatus.Pending, "بانتظار الرد", Model.PendingCount),
+        (FatwaStatus.Answered, "تمت الإجابة", Model.AnsweredCount),
+        (FatwaStatus.Published, "منشور", Model.PublishedCount)
+    };
+}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="mb-0">فتاوى المال</h2>
+    <a href="/fatawa" target="_blank" class="btn btn-outline-secondary btn-sm">عرض الصفحة العامة <i class="bi bi-box-arrow-up-left"></i></a>
+</div>
+
+<ul class="nav nav-pills mb-3 gap-1">
+    @foreach (var t in tabs)
+    {
+        <li class="nav-item">
+            <a class="nav-link @(Model.Status == t.Value ? "active bg-success" : "text-success border")"
+               href="/admin/fatawa@(t.Value.HasValue ? "?status=" + t.Value : "")">@t.Label <span class="badge bg-light text-dark ms-1">@t.Count</span></a>
+        </li>
+    }
+</ul>
+
+<div class="table-responsive">
+    <table class="table table-hover table-bordered align-middle bg-white">
+        <thead class="table-success">
+            <tr><th>السؤال</th><th>الحالة</th><th>منشور</th><th>مهم</th><th>التاريخ</th><th>إجراءات</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var q in Model.Questions)
+            {
+                <tr>
+                    <td style="max-width:420px">@TextHelper.Truncate(q.Question, 110)</td>
+                    <td>
+                        @switch (q.Status)
+                        {
+                            case FatwaStatus.Pending: <span class="badge bg-warning text-dark">بانتظار الرد</span> break;
+                            case FatwaStatus.Answered: <span class="badge bg-info text-dark">تمت الإجابة</span> break;
+                            case FatwaStatus.Published: <span class="badge bg-success">منشور</span> break;
+                        }
+                    </td>
+                    <td>@if (q.IsPublished) { <i class="bi bi-check-circle-fill text-success"></i> } else { <i class="bi bi-dash-circle text-muted"></i> }</td>
+                    <td>@if (q.IsFeatured) { <i class="bi bi-star-fill text-warning"></i> } else { <i class="bi bi-star text-muted"></i> }</td>
+                    <td class="text-nowrap">@q.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                    <td class="text-nowrap">
+                        <a href="/admin/fatawa/@q.Id" class="btn btn-sm btn-outline-primary">@(q.Status == FatwaStatus.Pending ? "الرد" : "فتح")</a>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                                data-bs-target="#confirmDeleteModal" data-action="/admin/fatawa/@q.Id/delete"
+                                data-name="@TextHelper.Truncate(q.Question, 60)">حذف</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+@if (!Model.Questions.Any())
+{
+    <p class="text-muted">لا توجد أسئلة في هذا القسم.</p>
+}
+
+@if (Model.TotalPages > 1)
+{
+    <nav>
+        <ul class="pagination justify-content-center">
+            @for (int i = 1; i <= Model.TotalPages; i++)
+            {
+                <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                    <a class="page-link" href="/admin/fatawa?status=@Model.Status&page=@i">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" id="confirmDeleteForm">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">تأكيد الحذف</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">هل أنت متأكد من حذف السؤال «<span id="deleteItemName"></span>»؟</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">حذف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('confirmDeleteModal').addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        document.getElementById('confirmDeleteForm').action = btn.getAttribute('data-action');
+        document.getElementById('deleteItemName').textContent = btn.getAttribute('data-name');
+    });
+</script>
+}

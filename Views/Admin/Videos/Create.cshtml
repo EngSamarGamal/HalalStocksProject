@@ -1,0 +1,70 @@
+@model VideoFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة فيديو";
+}
+<h2 class="mb-4">إضافة فيديو جديد</h2>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/admin/videos/create">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">رابط يوتيوب *</label>
+                <input asp-for="YouTubeUrl" id="youtubeUrl" class="form-control" placeholder="https://www.youtube.com/watch?v=... أو https://youtu.be/...">
+                <span asp-validation-for="YouTubeUrl" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <img id="thumbnailPreview" src="" alt="معاينة الصورة المصغرة" style="display:none;max-width:280px;border-radius:8px" class="mb-2">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">العنوان</label>
+                <input asp-for="Title" class="form-control" placeholder="سيتم اقتراح العنوان تلقائياً من الفيديو إذا تُرك فارغاً">
+                <span asp-validation-for="Title" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">الوصف</label>
+                <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">الفئة *</label>
+                <select asp-for="CategoryId" asp-items="Model.Categories" class="form-select">
+                    <option value="">-- اختر الفئة --</option>
+                </select>
+                <span asp-validation-for="CategoryId" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary">حفظ</button>
+            <a href="/admin/videos" class="btn btn-outline-secondary">إلغاء</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+@{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+<script>
+    function extractYouTubeId(url) {
+        var patterns = [
+            /youtu\.be\/([A-Za-z0-9_-]{11})/i,
+            /youtube\.com\/watch\?.*v=([A-Za-z0-9_-]{11})/i,
+            /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/i,
+            /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/i
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+            var match = url.match(patterns[i]);
+            if (match) return match[1];
+        }
+        return null;
+    }
+
+    document.getElementById('youtubeUrl').addEventListener('input', function () {
+        var id = extractYouTubeId(this.value.trim());
+        var preview = document.getElementById('thumbnailPreview');
+        if (id) {
+            preview.src = 'https://img.youtube.com/vi/' + id + '/hqdefault.jpg';
+            preview.style.display = '';
+        } else {
+            preview.style.display = 'none';
+        }
+    });
+</script>
+}

@@ -1,0 +1,39 @@
+@model HalalStocks.ViewModels.StockRecommendationFormViewModel
+@using HalalStocks.Models
+@{
+    ViewData["Title"] = "إضافة توصية";
+    ViewData["NoIndex"] = true;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>إضافة توصية</h2>
+    <a href="/recommendations" class="btn btn-outline-secondary">← العودة</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="post" action="/recommendations/create">
+            @Html.AntiForgeryToken()
+            <partial name="_FormFields" model="Model" />
+            <div class="mb-3">
+                <label class="form-label d-block">حالة الظهور</label>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" asp-for="IsHidden" id="visTrue" value="false">
+                    <label class="form-check-label" for="visTrue">ظاهر للمستخدمين</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" asp-for="IsHidden" id="visFalse" value="true">
+                    <label class="form-check-label" for="visFalse">مخفي عن المستخدمين</label>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-success">حفظ التوصية</button>
+                <a href="/recommendations" class="btn btn-outline-secondary">إلغاء</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_FormScripts" model="Model" />
+}

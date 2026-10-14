@@ -1,0 +1,9 @@
+@model HalalStocks.Models.Video
+<div class="video-facade position-relative rounded overflow-hidden" style="cursor:pointer;aspect-ratio:16/9;background:#000"
+     data-video-id="@Model.YouTubeVideoId" onclick="HalalStocks.playVideoFacade(this)">
+    <img src="@Model.ThumbnailUrl" alt="@Model.Title" class="w-100 h-100" style="object-fit:cover">
+    <div class="position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center rounded-circle bg-danger"
+         style="width:56px;height:56px;opacity:0.9">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="white" style="margin-inline-start:3px"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+</div>

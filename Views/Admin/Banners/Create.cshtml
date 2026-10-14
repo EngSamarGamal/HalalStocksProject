@@ -1,0 +1,55 @@
+@model BannerFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة بانر";
+}
+<h2 class="mb-4">إضافة بانر جديد</h2>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/admin/banners/create" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">العنوان *</label>
+                <input asp-for="TitleAr" class="form-control" required>
+                <span asp-validation-for="TitleAr" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">الوصف</label>
+                <textarea asp-for="DescriptionAr" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="DescriptionAr" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">صورة البانر *</label>
+                <input asp-for="Image" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp" required>
+                <span asp-validation-for="Image" class="text-danger"></span>
+                <small class="text-muted">الحد الأقصى: 2 ميجابايت، الصيغ المقبولة: JPG, PNG, WebP</small>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">اسم الزر</label>
+                    <input asp-for="ButtonText" class="form-control" maxlength="100">
+                    <span asp-validation-for="ButtonText" class="text-danger"></span>
+                </div>
+                <div class="col-md-8 mb-3">
+                    <label class="form-label">رابط الزر</label>
+                    <input asp-for="ButtonUrl" class="form-control" dir="ltr" maxlength="500" placeholder="https://... أو /stocks">
+                    <span asp-validation-for="ButtonUrl" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">ترتيب الظهور</label>
+                <input asp-for="DisplayOrder" type="number" class="form-control" style="max-width:150px">
+                <small class="text-muted">الرقم الأصغر يظهر أولاً في الـ slider</small>
+            </div>
+            <div class="mb-3 form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" type="checkbox">
+                <label asp-for="IsActive" class="form-check-label">مفعّل</label>
+            </div>
+            <button type="submit" class="btn btn-warning">حفظ</button>
+            <a href="/admin/banners" class="btn btn-outline-secondary">إلغاء</a>
+        </form>
+    </div>
+</div>
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

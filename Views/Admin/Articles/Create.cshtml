@@ -1,0 +1,128 @@
+@model ArticleFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة مقال";
+}
+<h2 class="mb-4">إضافة مقال جديد</h2>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/admin/articles/create" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">العنوان *</label>
+                <input asp-for="TitleAr" class="form-control" required>
+                <span asp-validation-for="TitleAr" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">نوع المقال *</label>
+                <select asp-for="Type" asp-items="Model.ArticleTypes" id="typeSelect" class="form-select"></select>
+                <small class="text-muted">مقالات «تحليل ورأي» تُصنَّف تلقائياً ولا تحتاج اختيار تصنيف</small>
+            </div>
+            <div class="mb-3" id="categoryFieldWrapper">
+                <label class="form-label">التصنيف *</label>
+                <div class="d-flex gap-2 align-items-start">
+                    <div class="flex-grow-1">
+                        <select asp-for="ArticleCategoryId" asp-items="Model.Categories" id="categorySelect" class="form-select">
+                            <option value="">-- اختر التصنيف --</option>
+                        </select>
+                        <span asp-validation-for="ArticleCategoryId" class="text-danger"></span>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary text-nowrap" id="toggleNewCategory">+ إضافة تصنيف جديد</button>
+                </div>
+                <div id="newCategoryBox" class="d-none mt-2 d-flex gap-2">
+                    <input type="text" id="newCategoryName" class="form-control" placeholder="اسم التصنيف الجديد">
+                    <button type="button" class="btn btn-success text-nowrap" id="addCategoryBtn">إضافة</button>
+                </div>
+                <div id="newCategoryError" class="text-danger mt-1" style="display:none"></div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">المحتوى *</label>
+                <div id="quill-editor" style="height:400px; font-family:'Tajawal',sans-serif; font-size:1rem;"></div>
+                <textarea asp-for="ContentAr" id="ContentAr" class="d-none"></textarea>
+                <span asp-validation-for="ContentAr" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">صورة مميزة</label>
+                <input asp-for="FeaturedImage" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+                <small class="text-muted">الحد الأقصى: 2 ميجابايت، الصيغ المقبولة: JPG, PNG, WebP</small>
+            </div>
+            <div class="mb-3 form-check form-switch">
+                <input asp-for="IsPublished" class="form-check-input" type="checkbox">
+                <label asp-for="IsPublished" class="form-check-label">نشر فوراً</label>
+            </div>
+            <button type="submit" class="btn btn-warning">حفظ</button>
+            <a href="/admin/articles" class="btn btn-outline-secondary">إلغاء</a>
+        </form>
+    </div>
+</div>
+@section Scripts {
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+@{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+<script>
+    var analyticalTypeValue = '@((int)HalalStocks.Models.ArticleType.Analytical)';
+    function updateCategoryFieldVisibility() {
+        var isAnalytical = document.getElementById('typeSelect').value === analyticalTypeValue;
+        document.getElementById('categoryFieldWrapper').style.display = isAnalytical ? 'none' : '';
+    }
+    document.getElementById('typeSelect').addEventListener('change', updateCategoryFieldVisibility);
+    updateCategoryFieldVisibility();
+
+    document.getElementById('toggleNewCategory').addEventListener('click', function () {
+        document.getElementById('newCategoryBox').classList.toggle('d-none');
+    });
+
+    document.getElementById('addCategoryBtn').addEventListener('click', function () {
+        var input = document.getElementById('newCategoryName');
+        var errorEl = document.getElementById('newCategoryError');
+        var name = input.value.trim();
+        errorEl.style.display = 'none';
+        if (!name) return;
+        var token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        fetch('/admin/article-categories/quick-create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+            body: JSON.stringify({ nameAr: name })
+        }).then(function (r) {
+            if (!r.ok) return r.json().then(function (e) { throw new Error(e.message || 'حدث خطأ أثناء الإضافة'); });
+            return r.json();
+        }).then(function (data) {
+            var select = document.getElementById('categorySelect');
+            var option = document.createElement('option');
+            option.value = data.id;
+            option.textContent = data.nameAr;
+            select.appendChild(option);
+            select.value = data.id;
+            input.value = '';
+            document.getElementById('newCategoryBox').classList.add('d-none');
+        }).catch(function (err) {
+            errorEl.textContent = err.message;
+            errorEl.style.display = 'block';
+        });
+    });
+
+    const quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        direction: 'rtl',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'header': [2, 3, false] }],
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                [{ 'align': [] }],
+                ['link'],
+                ['clean']
+            ]
+        }
+    });
+
+    quill.on('text-change', function () {
+        document.getElementById('ContentAr').value = quill.root.innerHTML.trim() === '<p><br></p>' ? '' : quill.getSemanticHTML();
+    });
+
+    document.querySelector('form').addEventListener('submit', function () {
+        document.getElementById('ContentAr').value = quill.root.innerHTML.trim() === '<p><br></p>' ? '' : quill.getSemanticHTML();
+    });
+</script>
+}

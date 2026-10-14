@@ -1,0 +1,130 @@
+@model HalalStocks.ViewModels.RecommendationsIndexViewModel
+@using HalalStocks.Models
+@using HalalStocks.ViewModels
+@{
+    ViewData["Title"] = "التوصيات";
+    ViewData["NoIndex"] = true;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h2 class="mb-0">خدمات التوصيات والتحليلات الفنيه</h2>
+    @if (Model.IsAdmin)
+    {
+        <div class="d-flex flex-wrap gap-2 align-items-center border rounded p-2">
+            <a href="/recommendations/create" class="btn btn-success">
+                <i class="bi bi-plus-lg"></i> إضافة توصية
+            </a>
+            <a href="/recommendations/types" class="btn btn-outline-secondary">
+                <i class="bi bi-list-ul"></i> إدارة أنواع التوصيات
+            </a>
+        </div>
+    }
+</div>
+
+@if (Model.PageState != RecommendationsPageState.List)
+{
+    <partial name="_AccessGate" model="Model.PageState" />
+}
+else
+{
+    <partial name="_ManagementRequestBanner" />
+
+    <partial name="_NavTabs" model="@("recommendations")" />
+
+    @if (!Model.Recommendations.Any())
+    {
+        <div class="alert alert-info">لا توجد توصيات حالياً.</div>
+    }
+    else
+    {
+
+        <div class="report-guidelines mt-4 mb-4">
+            <div class="report-guidelines-header">
+                ملحوظات
+            </div>
+
+            <div class="report-guidelines-body">
+                <p class="mb-0">
+                    يُقدم هذا التقرير والتوصيات والتحليلات الفنية لأغراض إعلامية وتعليمية فقط، ولا يُعد بأي حال من الأحوال دعوة أو نصيحة أو توصية لشراء أو بيع أي أوراق مالية أو أصول استثمارية.
+                    جميع التوصيات والتحليلات المعروضة من خلال هذه الخدمة معتمدة أو صادرة بالتنسيق مع شركات السمسرة المرخصةلدى هيئة الرقابة المالية  في السوق المصري. ومع ذلك، فإن هذه التوصيات لا تعتبر نصيحة مالية شخصية، ولا يُضمن دقة أو اكتمال المعلومات، كما أن الأداء السابق ليس مؤشراً على النتائج المستقبلية.
+                    يتحمل المستثمر وحده كامل المسؤولية عن أي قرار استثماري يتخذه بناءً على هذه التوصيات أو التحليلات. التداول في الأسواق المالية ينطوي على مخاطر عالية قد تؤدي إلى خسارة جزء أو كل رأس المال المستثمر.
+                    لا تتحمل المنصة ولا أي من الشركات السمسرة المتعاونة معها أي مسؤولية قانونية أو مالية عن أي خسائر مباشرة أو غير مباشرة أو فرص ضائعة تنتج عن الاعتماد على هذا المحتوى.
+                    يُحظر نسخ أو توزيع أو نشر أو مشاركة أي جزء من هذا المحتوى مع الغير دون الحصول على موافقة كتابية مسبقة.
+                </p>
+            </div>
+        </div>
+
+        <partial name="_RecommendationTable" model="@(new RecommendationTableViewModel
+        {
+            SectionKey = "general",
+            PurityGradeLabels = Model.PurityGradeLabels,
+            Recommendations = Model.Recommendations.Cast<RecommendationBase>().ToList(),
+            CanManage = Model.IsAdmin,
+            EditUrlPrefix = "/recommendations",
+            DeleteUrlPrefix = "/recommendations"
+        })" />
+
+        <div class="report-guidelines my-4">
+            <div class="report-guidelines-header">
+                الإرشادات
+            </div>
+
+            <div class="report-guidelines-body">
+                <p><strong>ملحوظة:</strong> يتم وضع النصائح قصيرة الأجل (التوصية) في الجدول على النحو التالي:</p>
+
+                <ul class="mb-0">
+                    <li><strong>"شراء":</strong> الأسهم اللي بننصحك تشتريها دلوقتي لأن فيها فرصة كويسة إن سعرها يطلع.</li>
+
+                    <li><strong>"شراء الانخفاضات":</strong> الأسهم اللي لسه قوية ومناسبة تشتريها حتى لو سعرها نزل شوية. يعني ""اشتري وأنت نازل"".</li>
+
+                    <li><strong>"إحتفاظ":</strong> الأسهم اللي أداؤها كويس، بس فيها بعض المخاطر. الأفضل تسيبها زي ما هي ومتشتريش جديد دلوقتي.</li>
+
+                    <li><strong>"تخفيف":</strong> الأسهم اللي بدأت تضعف. بننصحك تبيع جزء من الكمية اللي عندك عشان تقلل المخاطرة.</li>
+
+                    <li><strong>"بيع":</strong> الأسهم اللي بننصحك تبيعها دلوقتي لأن فيها فرصة إن سعرها ينزل أكتر.</li>
+
+                    <li><strong>"بيع الارتفاعات":</strong> الأسهم اللي كانت كويسة وبدأت تضعف. بننصحك تبيعها لما يرتفع سعرها شوية عشان تخرج بربح أو تقلل الخسارة.</li>
+
+                    <li><strong>"المتاجرة":</strong> الأسهم اللي بتتحرك في نطاق معين (بتطلع وتنزل). تنفع تشتري تحت وتبيع فوق، مش مناسبة للاستثمار الطويل.</li>
+
+                    <li><strong>"انتظار إشارة شراء":</strong> الأسهم اللي نزل سعرها كتير. ممكن تكون فرصة، بس لسه مش واضح إنها هتطلع. استنى لحد ما تظهر إشارة شراء قوية.</li>
+
+                    <li><strong>"وقف الخسارة":</strong> نبيع السهم فوراً عشان نحمي فلوسنا ونمنع الخسائر تزيد. بنعمل كده لما الوضع يتغير ويبقى سلبي.</li>
+                </ul>
+            </div>
+        </div>
+    }
+
+    <hr style="width:85%; margin:auto;" class="my-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h3 class="mb-0">توصياتي الخاصة</h3>
+        <a href="/recommendations/my/create" class="btn btn-success">
+            <i class="bi bi-plus-lg"></i> اضافة توصية
+        </a>
+    </div>
+
+    @if (!Model.PrivateRecommendations.Any())
+    {
+        <div class="alert alert-info">لا توجد توصيات خاصة حالياً.</div>
+    }
+    else
+    {
+        <partial name="_RecommendationTable" model="@(new RecommendationTableViewModel
+        {
+            SectionKey = "private",
+            PurityGradeLabels = Model.PrivatePurityGradeLabels,
+            Recommendations = Model.PrivateRecommendations.Cast<RecommendationBase>().ToList(),
+            CanManage = true,
+            EditUrlPrefix = "/recommendations/my",
+            DeleteUrlPrefix = "/recommendations/my"
+        })" />
+    }
+}
+
+@section Scripts {
+    @if (Model.PageState == RecommendationsPageState.List)
+    {
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    }
+}

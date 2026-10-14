@@ -1,0 +1,70 @@
+@using HalalStocks.Models
+@{
+    var wallet = (InvestmentWallet?)ViewBag.Wallet;
+    var summary = ViewBag.Summary is ValueTuple<decimal, decimal, decimal, decimal, decimal> tuple
+        ? tuple
+        : (0m, 0m, 0m, 0m, 0m);
+    var totalInvested = summary.Item1;
+    var currentLiquidity = summary.Item2;
+}
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="mb-0">حدد/عدل السيولة</h5>
+            <button type="button" class="btn btn-success" data-wallet-toggle="cash-form">حدد/عدل السيولة</button>
+        </div>
+
+        <div id="walletCashForm" class="d-none">
+            <form method="post" action="/recommendations/wallet/cash" class="d-inline" novalidate>
+                @Html.AntiForgeryToken()
+                <div class="input-group my-1" style="max-width:320px">
+                    <input name="CashBalance" class="form-control" type="number" step="0.01" value="@(wallet?.CashBalance ?? 0)" />
+                    <button type="submit" class="btn btn-success">حفظ</button>
+                </div>
+            </form>
+        </div>
+
+        @if (wallet == null)
+        {
+            <div class="alert alert-info mb-0">لم يتم تحديد سيولة للمحفظة بعد. اضبط السيولة لبدء التتبع.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>السيولة بالمحفظة</th>
+                            <th>الاستثمار المتوقع</th>
+                            <th>السيولة الحالية</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>@wallet.CashBalance.ToString("N2")</td>
+                            <td>@totalInvested.ToString("N2")</td>
+                            <td>@currentLiquidity.ToString("N2")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="/recommendations/wallet" class="btn btn-success">تحكم في محفظتك</a>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const toggle = document.querySelector('[data-wallet-toggle="cash-form"]');
+        const form = document.getElementById('walletCashForm');
+        if (toggle && form) {
+            toggle.addEventListener('click', function () {
+                form.classList.toggle('d-none');
+            });
+        }
+    });
+</script>

@@ -1,0 +1,144 @@
+@model StockFormViewModel
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label">رمز السهم *</label>
+        <input asp-for="TickerSymbol" class="form-control" required>
+        <span asp-validation-for="TickerSymbol" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">الاسم بالعربية *</label>
+        <input asp-for="NameAr" class="form-control" required>
+        <span asp-validation-for="NameAr" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">الفئة *</label>
+        <select asp-for="CategoryId" asp-items="Model.Categories" class="form-select">
+            <option value="">اختر فئة</option>
+        </select>
+    </div>
+    <div class="col-12">
+        <label class="form-label">المؤشرات</label>
+        <div class="row g-2">
+            @foreach (var idx in Model.AvailableIndices)
+            {
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="SelectedIndexIds" value="@idx.Value"
+                               id="idx_@idx.Value"
+                               @(Model.SelectedIndexIds.Contains(int.Parse(idx.Value)) ? "checked" : "")>
+                        <label class="form-check-label" for="idx_@idx.Value">@idx.Text</label>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="col-12">
+        <label class="form-label fw-semibold">درجة النقاء</label>
+        <div class="row g-2">
+            @{
+                var purityOptions = new[]
+                {
+                    (Value: 1,   Label: "نقي"),
+                    (Value: 2,   Label: "شبه نقي"),
+                    (Value: 128, Label: "شرعي مختلط A"),
+                    (Value: 32,  Label: "شرعي مختلط B"),
+                    (Value: 256, Label: "شرعي مختلط C"),
+                    (Value: 4,   Label: "غير شرعي دخل محظور"),
+                    (Value: 8,   Label: "غير شرعي قروض"),
+                    (Value: 16,  Label: "غير شرعي استثمارات ربوية"),
+                    (Value: 64,  Label: "غير شرعي نشاط")
+                };
+            }
+            @foreach (var opt in purityOptions)
+            {
+                <div class="col-md-4">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="SelectedPurityGrades" value="@opt.Value"
+                               id="purity_@opt.Value"
+                               @(Model.SelectedPurityGrades.Contains(opt.Value) ? "checked" : "")>
+                        <label class="form-check-label" for="purity_@opt.Value">@opt.Label</label>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">الحكم الشرعي *</label>
+        <select asp-for="ShariahStatus" class="form-select">
+            <option value="Halal">متوافق مع الشريعة</option>
+            <option value="MustPurify">غير متوافق مع الشريعة</option>
+            <option value="AwaitingFinancialStatements">في انتظار ظهور القوائم المالية المعتمدة</option>
+            <option value="StatusBlocked">تم حجب إعلان الموقف الشرعي للسهم</option>
+        </select>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">نسبة التطهير (%)</label>
+        <input asp-for="PurificationRatio" type="number" step="0.01" class="form-control">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">البورصة</label>
+        <input asp-for="Exchange" class="form-control">
+    </div>
+    <div class="col-12">
+        <label class="form-label">ملاحظات</label>
+        <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+    </div>
+    <div class="col-12">
+        <div class="form-check form-switch">
+            <input asp-for="IsActive" class="form-check-input" type="checkbox">
+            <label asp-for="IsActive" class="form-check-label">نشط</label>
+        </div>
+    </div>
+
+    <div class="col-12 mt-2">
+        <fieldset class="border rounded p-3">
+            <legend class="float-none w-auto px-2 fs-6 fw-bold text-success">نسب الفرز الشرعي</legend>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">الدخل المحظور (%)</label>
+                    <input asp-for="ProhibitedIncomeRatio" type="number" step="0.01" min="0" max="100" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">أنشطة استثمارية غير شرعية (%)</label>
+                    <input asp-for="NonShariahInvestmentRatio" type="number" step="0.01" min="0" max="100" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">التزامات غير شرعية (%)</label>
+                    <input asp-for="NonShariahObligationsRatio" type="number" step="0.01" min="0" max="100" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">الأصول السائلة (%)</label>
+                    <input asp-for="LiquidAssetsRatio" type="number" step="0.01" min="0" max="100" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label"> تاريخ المراجعة للقوائم المالية</label>
+                    <input asp-for="LastReviewedAt" type="date" class="form-control">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">ملاحظات إضافية</label>
+                    <textarea asp-for="AdditionalNotes" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+        </fieldset>
+    </div>
+
+    <div class="col-12 mt-2">
+        <fieldset class="border rounded p-3">
+            <legend class="float-none w-auto px-2 fs-6 fw-bold text-success">بيانات الشركة المالية</legend>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">إجمالي أسهم الشركة</label>
+                    <input asp-for="TotalCompanyShares" type="number" step="1" min="0" class="form-control">
+                    <span asp-validation-for="TotalCompanyShares" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">إجمالي أصول الشركة (جنيه)</label>
+                    <input asp-for="TotalCompanyAssets" type="number" step="0.01" min="0" class="form-control">
+                    <span asp-validation-for="TotalCompanyAssets" class="text-danger"></span>
+                </div>
+            </div>
+        </fieldset>
+    </div>
+</div>

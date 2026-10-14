@@ -1,0 +1,562 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery _antiforgery
+@{
+    ViewData["Title"] = "حاسبة تطهير توزيعات الأرباح";
+    var _csrfToken = _antiforgery.GetAndStoreTokens(Context).RequestToken!;
+}
+
+@* The preview math here is only a live preview: on save the client posts just the stock and the
+   dividend inputs, and the server recomputes everything from the stock's current data. *@
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <h2 class="mb-0">حاسبة تطهير توزيعات الأرباح</h2>
+</div>
+
+@* Admin-editable (admin/instructions); a cleared editor means no intro block at all. *@
+@if (ViewBag.Instructions is string _instructions && !string.IsNullOrWhiteSpace(_instructions))
+{
+    <div class="text-muted mb-4 calculator-instructions">@Html.Raw(_instructions)</div>
+}
+
+<div class="card shadow-sm mb-4">
+    <div id="formCardHeader" class="card-header bg-success text-white fw-bold">بيانات السهم</div>
+    <div class="card-body"> 
+        <div class="row g-3">
+            <div class="col-md-4" data-field="Stock">
+                <label class="form-label fw-semibold">اسم السهم أو رمزه <span class="text-danger">*</span></label>
+                <div class="position-relative">
+                    <input type="text" id="stockInput" class="form-control" autocomplete="off"
+                           placeholder="ابحث بالكود أو باسم السهم">
+                    <div id="stockSuggestions" class="list-group position-absolute w-100 shadow d-none"
+                         style="z-index:1060; max-height:260px; overflow-y:auto;"></div>
+                </div>
+                <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-4" data-field="Ratio">
+                <label class="form-label text-muted">نسبة التطهير (%)</label>
+                <input type="text" id="ratioInput" class="form-control fw-bold" dir="ltr" readonly placeholder="تظهر بعد اختيار السهم">
+                <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label text-muted">تاريخ إصدار القوائم المالية</label>
+                <input type="text" id="statementsDateInput" class="form-control" dir="ltr" readonly>
+            </div>
+        </div>
+        <div class="form-text mt-2">اختر السهم من القائمة، وستظهر النسبة وتاريخ القوائم تلقائياً.</div>
+    </div>
+</div>
+
+<!-- ── الجزء الثاني: الأرباح المكتسبة من التوزيعات ─────────────── -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white fw-bold">الأرباح المكتسبة من التوزيعات</div>
+    <div class="card-body">
+
+        <div class="alert alert-info d-flex gap-2 mb-4" role="note">
+            <i class="bi bi-info-circle-fill flex-shrink-0"></i>
+            <div>
+                <div class="fw-bold mb-1">ملحوظة: ما نوع التوزيع الذي حصلت عليه؟</div>
+                <ul class="mb-0 ps-3 pe-3">
+                    <li><strong>توزيعات نقدية:</strong> مبلغ مالي دخل حسابك من الشركة. اختر «توزيعات نقدية» واكتب المبلغ الذي استلمته.</li>
+                    <li><strong>توزيعات أسهم (أسهم مجانية):</strong> أسهم أضافتها الشركة لمحفظتك بدل المبلغ النقدي. اختر «توزيعات أسهم» واكتب عدد الأسهم التي حصلت عليها وسعر السهم، وسيُحسب إجمالي قيمتها تلقائياً.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-semibold d-block">نوع التوزيع <span class="text-danger">*</span></label>
+            <div class="btn-group" role="group" aria-label="نوع التوزيع">
+                <input type="radio" class="btn-check" name="dividendType" id="typeCash" value="cash" autocomplete="off" checked>
+                <label class="btn btn-outline-success px-4" for="typeCash">توزيعات نقدية</label>
+
+                <input type="radio" class="btn-check" name="dividendType" id="typeStock" value="stock" autocomplete="off">
+                <label class="btn btn-outline-success px-4" for="typeStock">توزيعات أسهم</label>
+            </div>
+        </div>
+
+        <div id="cashPanel" class="row g-3">
+            <div class="col-md-6" data-field="Cash">
+                <label class="form-label fw-semibold">التوزيعات النقدية <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="number" id="cashInput" class="form-control" min="0" step="any" placeholder="0.00">
+                    <span class="input-group-text">جنيه</span>
+                </div>
+                <div class="form-text">قيمة الأرباح النقدية التي حصلت عليها.</div>
+                <div class="invalid-feedback"></div>
+            </div>
+        </div>
+
+        <div id="stockPanel" class="row g-3 d-none">
+            <div class="col-md-6" data-field="Shares">
+                <label class="form-label fw-semibold">عدد الأسهم <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="number" id="sharesInput" class="form-control" min="1" step="1" placeholder="0">
+                    <span class="input-group-text">سهم</span>
+                </div>
+                <div class="invalid-feedback"></div>
+            </div>
+            <div class="col-md-6" data-field="Price">
+                <label class="form-label fw-semibold">سعر السهم <span class="text-danger">*</span></label>
+                <div class="input-group">
+                    <input type="number" id="priceInput" class="form-control" min="0" step="any" placeholder="0.00">
+                    <span class="input-group-text">جنيه</span>
+                </div>
+                <div class="invalid-feedback"></div>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <div class="row">
+            <div class="col-md-6 offset-md-6 text-center">
+                <div class="text-muted mb-1">إجمالي التوزيعات</div>
+                <div id="totalDisplay" class="fs-2 fw-bold" dir="ltr">—</div>
+                <div class="text-muted small">جنيه</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white fw-bold">المبلغ الواجب إخراجه للتطهير</div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label text-muted">نسبة الدخل المحظور (%)</label>
+                <input type="text" id="ratioDisplay" class="form-control" dir="ltr" readonly>
+                <div class="form-text">مبلغ التطهير = إجمالي التوزيعات × نسبة الدخل المحظور</div>
+            </div>
+            <div class="col-md-6 text-center">
+                <div class="text-muted mb-1">مبلغ التطهير</div>
+                <div id="purificationDisplay" class="display-6 fw-bold text-success" dir="ltr">—</div>
+                <div class="text-muted small">جنيه</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="saveError" class="alert alert-danger d-none"></div>
+<div class="d-flex gap-2 mb-5">
+    <button type="button" id="saveBtn" class="btn btn-success fw-bold px-4">حفظ النتيجة</button>
+    <button type="button" id="resetBtn" class="btn btn-outline-secondary">مسح الخانات</button>
+</div>
+
+<!-- ── جدول: لم يتم سدادها ───────────────────────────────────── -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-warning text-dark fw-bold">لم يتم سدادها</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>السهم</th>
+                        <th>نوع التوزيع</th>
+                        <th class="text-end">إجمالي التوزيعات (جنيه)</th>
+                        <th class="text-end">نسبة التطهير</th>
+                        <th class="text-end">مبلغ التطهير (جنيه)</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="unpaidBody"></tbody>
+                <tfoot>
+                    <tr class="table-light fw-bold">
+                        <td colspan="5">الإجمالي</td>
+                        <td class="text-end text-success" id="unpaidTotal" dir="ltr">0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-secondary text-white fw-bold">تم سدادها</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>السهم</th>
+                        <th>نوع التوزيع</th>
+                        <th class="text-end">إجمالي التوزيعات (جنيه)</th>
+                        <th class="text-end">نسبة التطهير</th>
+                        <th class="text-end">مبلغ التطهير (جنيه)</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="paidBody"></tbody>
+                <tfoot>
+                    <tr class="table-light fw-bold">
+                        <td colspan="5">الإجمالي</td>
+                        <td class="text-end" id="paidTotal" dir="ltr">0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تأكيد الحذف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+            <div class="modal-body">
+                هل أنت متأكد من حذف سجل <span class="fw-bold" id="deleteItemName"></span> نهائياً؟
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">حذف</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <style>
+        .invalid-feedback { display: block; color: #dc3545; font-size: 0.875em; min-height: 0; }
+        .invalid-feedback:empty { display: none; }
+        .form-control.is-invalid { border-color: #dc3545; }
+        #stockSuggestions .list-group-item.active { background-color: #198754; border-color: #198754; color: #fff; }
+    </style>
+    <script>
+        var csrfToken = '@_csrfToken';
+        var records = [];
+        var pendingDeleteId = null;
+        var selectedStock   = null;   // { id, ticker, nameAr, ratio, statementsDate }
+        var suggestions     = [];
+        var highlightIndex  = -1;
+        var searchTimer     = null;
+        var RATIO_MISSING   = 'لا تتوفر نسبة تطهير لهذا السهم حالياً، لذلك لا يمكن حساب المبلغ.';
+
+        // ── server calls ────────────────────────────────────────────
+        function postJson(url, body) {
+            return fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken },
+                body: body ? JSON.stringify(body) : undefined
+            });
+        }
+
+        function showSaveError(msg) {
+            var el = document.getElementById('saveError');
+            el.textContent = msg || '';
+            el.classList.toggle('d-none', !msg);
+        }
+
+        function loadRecords() {
+            return fetch('/dividend-purification/records')
+                .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+                .then(function (data) { records = data; renderTables(); })
+                .catch(function () { showSaveError('تعذّر تحميل السجلات المحفوظة. يرجى تحديث الصفحة.'); });
+        }
+
+        // ── math ────────────────────────────────────────────────────
+        function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+        function fmt(n)    { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+        function isCash()  { return document.getElementById('typeCash').checked; }
+        function num(id)   { var v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; }
+
+        function currentTotal() {
+            if (isCash()) {
+                var cash = num('cashInput');
+                return cash === null ? null : round2(cash);
+            }
+            var shares = num('sharesInput'), price = num('priceInput');
+            return (shares === null || price === null) ? null : round2(shares * price);
+        }
+
+        function currentPurification() {
+            var total = currentTotal(), ratio = num('ratioInput');
+            return (total === null || ratio === null) ? null : round2(total * ratio / 100);
+        }
+
+        function refreshPreview() {
+            var total = currentTotal(), ratio = num('ratioInput'), pur = currentPurification();
+            document.getElementById('totalDisplay').textContent        = total === null ? '—' : fmt(total);
+            document.getElementById('ratioDisplay').value              = ratio === null ? '' : String(ratio);
+            document.getElementById('purificationDisplay').textContent = pur === null ? '—' : fmt(pur);
+        }
+
+        // ── validation (hand-driven, see coding-standards) ──────────
+        function setFieldState(field, message) {
+            var wrap = document.querySelector('[data-field="' + field + '"]');
+            if (!wrap) return;
+            var fb = wrap.querySelector('.invalid-feedback');
+            wrap.querySelectorAll('.form-control').forEach(function (c) { c.classList.toggle('is-invalid', !!message); });
+            if (fb) fb.textContent = message || '';
+        }
+
+        function validateForm() {
+            var ok = true;
+            function check(field, bad, msg) { setFieldState(field, bad ? msg : ''); if (bad) ok = false; }
+
+            check('Stock', !selectedStock, 'يرجى اختيار السهم من القائمة.');
+            check('Ratio', !!selectedStock && selectedStock.ratio === null, RATIO_MISSING);
+
+            if (isCash()) {
+                var cash = num('cashInput');
+                check('Cash', cash === null || cash <= 0, 'يرجى إدخال قيمة التوزيعات النقدية.');
+                setFieldState('Shares', ''); setFieldState('Price', '');
+            } else {
+                var shares = num('sharesInput'), price = num('priceInput');
+                check('Shares', shares === null || shares <= 0, 'يرجى إدخال عدد الأسهم.');
+                check('Price',  price  === null || price  <= 0, 'يرجى إدخال سعر السهم.');
+                setFieldState('Cash', '');
+            }
+            return ok;
+        }
+
+        // ── form events ─────────────────────────────────────────────
+        document.querySelectorAll('input[name="dividendType"]').forEach(function (r) {
+            r.addEventListener('change', function () {
+                document.getElementById('cashPanel').classList.toggle('d-none', !isCash());
+                document.getElementById('stockPanel').classList.toggle('d-none', isCash());
+                refreshPreview();
+            });
+        });
+        ['cashInput', 'sharesInput', 'priceInput'].forEach(function (id) {
+            document.getElementById(id).addEventListener('input', refreshPreview);
+        });
+
+        // ── stock picker ────────────────────────────────────────────
+        var stockInput       = document.getElementById('stockInput');
+        var stockSuggestions = document.getElementById('stockSuggestions');
+
+        function stockLabel(s) { return s.ticker + ' — ' + s.nameAr; }
+
+        function showStockData() {
+            document.getElementById('ratioInput').value = (selectedStock && selectedStock.ratio !== null)
+                ? String(selectedStock.ratio) : '';
+            document.getElementById('statementsDateInput').value = (selectedStock && selectedStock.statementsDate)
+                ? new Date(selectedStock.statementsDate).toLocaleDateString('en-GB') : '';
+            // Say why the box is empty right when the stock is picked, not only on save.
+            setFieldState('Ratio', (selectedStock && selectedStock.ratio === null) ? RATIO_MISSING : '');
+            refreshPreview();
+        }
+
+        function hideSuggestions() {
+            stockSuggestions.classList.add('d-none');
+            stockSuggestions.innerHTML = '';
+            suggestions = [];
+            highlightIndex = -1;
+        }
+
+        function renderSuggestions(list) {
+            suggestions = list;
+            highlightIndex = -1;
+            stockSuggestions.innerHTML = '';
+            if (!list.length) {
+                var none = document.createElement('div');
+                none.className = 'list-group-item text-muted';
+                none.textContent = 'لا توجد نتائج';
+                stockSuggestions.appendChild(none);
+            } else {
+                list.forEach(function (s, i) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'list-group-item list-group-item-action text-end';
+                    b.setAttribute('data-suggestion', i);
+                    var t = document.createElement('strong');
+                    t.dir = 'ltr';
+                    t.textContent = s.ticker;
+                    b.appendChild(t);
+                    b.appendChild(document.createTextNode(' — ' + s.nameAr));
+                    stockSuggestions.appendChild(b);
+                });
+            }
+            stockSuggestions.classList.remove('d-none');
+        }
+
+        function moveHighlight(delta) {
+            if (!suggestions.length) return;
+            highlightIndex = (highlightIndex + delta + suggestions.length) % suggestions.length;
+            var items = stockSuggestions.querySelectorAll('[data-suggestion]');
+            items.forEach(function (el, i) { el.classList.toggle('active', i === highlightIndex); });
+            if (items[highlightIndex] && items[highlightIndex].scrollIntoView)
+                items[highlightIndex].scrollIntoView({ block: 'nearest' });
+        }
+
+        function pickSuggestion(index) {
+            var s = suggestions[index];
+            if (!s) return;
+            selectedStock = s;
+            stockInput.value = stockLabel(s);
+            hideSuggestions();
+            setFieldState('Stock', '');
+            showStockData();
+        }
+
+        stockInput.addEventListener('input', function () {
+            // Any edit to the text invalidates the current pick, so a stale stock's ratio
+            // can never be saved against text the user has since changed.
+            selectedStock = null;
+            showStockData();
+
+            var term = stockInput.value.trim();
+            clearTimeout(searchTimer);
+            if (!term) { hideSuggestions(); return; }
+
+            searchTimer = setTimeout(function () {
+                fetch('/api/stocks/dividend-search?q=' + encodeURIComponent(term))
+                    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+                    .then(renderSuggestions)
+                    .catch(function () { hideSuggestions(); });
+            }, 250);
+        });
+
+        stockInput.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); moveHighlight(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); moveHighlight(-1); }
+            else if (e.key === 'Enter' && highlightIndex >= 0) { e.preventDefault(); pickSuggestion(highlightIndex); }
+            else if (e.key === 'Escape') { hideSuggestions(); }
+        });
+
+        // mousedown fires before blur, so the click still lands on the item.
+        stockSuggestions.addEventListener('mousedown', function (e) {
+            var item = e.target.closest('[data-suggestion]');
+            if (!item) return;
+            e.preventDefault();
+            pickSuggestion(parseInt(item.getAttribute('data-suggestion'), 10));
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!stockInput.contains(e.target) && !stockSuggestions.contains(e.target)) hideSuggestions();
+        });
+
+        function resetForm() {
+            selectedStock = null;
+            hideSuggestions();
+            ['stockInput', 'ratioInput', 'statementsDateInput', 'cashInput', 'sharesInput', 'priceInput']
+                .forEach(function (id) { document.getElementById(id).value = ''; });
+            document.getElementById('typeCash').checked = true;
+            document.getElementById('cashPanel').classList.remove('d-none');
+            document.getElementById('stockPanel').classList.add('d-none');
+            ['Stock', 'Ratio', 'Cash', 'Shares', 'Price'].forEach(function (f) { setFieldState(f, ''); });
+            refreshPreview();
+        }
+
+        document.getElementById('resetBtn').addEventListener('click', resetForm);
+
+        document.getElementById('saveBtn').addEventListener('click', function () {
+            showSaveError('');
+            if (!validateForm()) return;
+
+            var cash = isCash();
+            var body = {
+                stockId: selectedStock.id,
+                type: cash ? 'cash' : 'stock',
+                cashAmount: cash ? num('cashInput') : null,
+                shares: cash ? null : num('sharesInput'),
+                sharePrice: cash ? null : num('priceInput')
+            };
+
+            var btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            postJson('/dividend-purification/save', body)
+                .then(function (r) {
+                    if (r.ok) return null;
+                    return r.json().catch(function () { return null; }).then(function (j) {
+                        throw new Error((j && j.error) || 'تعذّر حفظ النتيجة، يرجى المحاولة مرة أخرى.');
+                    });
+                })
+                .then(function () { resetForm(); return loadRecords(); })
+                .catch(function (e) { showSaveError(e.message); })
+                .then(function () { btn.disabled = false; });
+        });
+
+        // ── tables ──────────────────────────────────────────────────
+        function td(tr, text, className) {
+            var c = document.createElement('td');
+            c.textContent = text;
+            if (className) c.className = className;
+            tr.appendChild(c);
+            return c;
+        }
+
+        function actionButton(label, className, onClick) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn btn-sm ' + className + ' ms-1';
+            b.textContent = label;
+            b.addEventListener('click', onClick);
+            return b;
+        }
+
+        function typeLabel(r) {
+            return r.type === 'cash'
+                ? 'توزيعات نقدية'
+                : 'توزيعات أسهم (' + r.shares.toLocaleString('en-US') + ' × ' + fmt(r.sharePrice) + ')';
+        }
+
+        function fillBody(bodyId, totalId, rows, paid) {
+            var body = document.getElementById(bodyId);
+            body.innerHTML = '';
+            if (rows.length === 0) {
+                var empty = document.createElement('tr');
+                var c = td(empty, 'لا توجد سجلات.', 'text-center text-muted py-3');
+                c.colSpan = 7;
+                body.appendChild(empty);
+            }
+            rows.forEach(function (r) {
+                var tr = document.createElement('tr');
+                td(tr, new Date(r.createdAt).toLocaleDateString('en-GB'));
+                td(tr, r.ticker + ' — ' + r.nameAr).style.fontWeight = 'bold';
+                td(tr, typeLabel(r));
+                td(tr, fmt(r.totalDividends), 'text-end').dir = 'ltr';
+                td(tr, r.ratio + '%', 'text-end');
+                td(tr, fmt(r.purificationAmount), 'text-end fw-bold ' + (paid ? '' : 'text-success')).dir = 'ltr';
+
+                var actions = document.createElement('td');
+                actions.className = 'text-nowrap';
+                actions.appendChild(actionButton(paid ? 'إلغاء السداد' : 'تم السداد',
+                    paid ? 'btn-outline-secondary' : 'btn-success', function () { togglePaid(r.id); }));
+                actions.appendChild(actionButton('حذف', 'btn-outline-danger', function () { askDelete(r.id); }));
+                tr.appendChild(actions);
+                body.appendChild(tr);
+            });
+            document.getElementById(totalId).textContent =
+                fmt(rows.reduce(function (s, r) { return s + r.purificationAmount; }, 0));
+        }
+
+        function renderTables() {
+            fillBody('unpaidBody', 'unpaidTotal', records.filter(function (r) { return !r.isPaid; }), false);
+            fillBody('paidBody',   'paidTotal',   records.filter(function (r) { return r.isPaid; }),  true);
+        }
+
+        function togglePaid(id) {
+            showSaveError('');
+            postJson('/dividend-purification/' + id + '/toggle-paid')
+                .then(function (r) { return r.ok ? loadRecords() : Promise.reject(r.status); })
+                .catch(function () { showSaveError('تعذّر تحديث حالة السداد، يرجى المحاولة مرة أخرى.'); });
+        }
+
+        var deleteModal;
+        function askDelete(id) {
+            var r = records.filter(function (x) { return x.id === id; })[0];
+            if (!r) return;
+            pendingDeleteId = id;
+            document.getElementById('deleteItemName').textContent = r.ticker;
+            deleteModal = deleteModal || new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+            deleteModal.show();
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+            var id = pendingDeleteId;
+            pendingDeleteId = null;
+            deleteModal.hide();
+            showSaveError('');
+            postJson('/dividend-purification/' + id + '/delete')
+                .then(function (r) { return r.ok ? loadRecords() : Promise.reject(r.status); })
+                .catch(function () { showSaveError('تعذّر حذف السجل، يرجى المحاولة مرة أخرى.'); });
+        });
+
+        renderTables();
+        refreshPreview();
+        loadRecords();
+    </script>
+}

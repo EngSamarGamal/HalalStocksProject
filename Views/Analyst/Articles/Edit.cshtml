@@ -1,0 +1,90 @@
+@using HalalStocks.Helpers
+@using HalalStocks.Models
+@model AnalystArticleFormViewModel
+@{
+    ViewData["Title"] = "تعديل المقال";
+    ViewData["NoIndex"] = true;
+    var (statusLabel, statusBadgeClass) = ArticleApprovalStatusHelper.Badge(Model.ApprovalStatus);
+}
+
+<h2 class="mb-4">تعديل المقال</h2>
+
+<partial name="~/Views/Analyst/_AnalystNav.cshtml" model="@("articles")" />
+
+<p>الحالة الحالية: <span class="badge @statusBadgeClass">@statusLabel</span></p>
+
+@if (Model.ApprovalStatus == ArticleApprovalStatus.Hidden && !string.IsNullOrEmpty(Model.HideReason))
+{
+    <div class="alert alert-danger">سبب الإخفاء: @Model.HideReason</div>
+}
+
+@if (Model.ApprovalStatus is ArticleApprovalStatus.Approved or ArticleApprovalStatus.Hidden)
+{
+    <div class="alert alert-warning">تعديل هذا المقال سيُعيده إلى قائمة الانتظار حتى تعتمده الإدارة مجدداً.</div>
+}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/analyst/articles/edit/@Model.Id" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">العنوان *</label>
+                <input asp-for="TitleAr" class="form-control" required>
+                <span asp-validation-for="TitleAr" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">المحتوى *</label>
+                <div id="quill-editor" style="height:400px; font-family:'Tajawal',sans-serif; font-size:1rem;"></div>
+                <textarea asp-for="ContentAr" id="ContentAr" class="d-none"></textarea>
+                <span asp-validation-for="ContentAr" class="text-danger"></span>
+            </div>
+            @if (!string.IsNullOrEmpty(Model.ExistingImagePath))
+            {
+                <div class="mb-2">
+                    <img src="@Model.ExistingImagePath" class="img-thumbnail" style="max-height:150px" alt="الصورة الحالية">
+                    <small class="text-muted d-block">الصورة الحالية</small>
+                </div>
+            }
+            <div class="mb-3">
+                <label class="form-label">صورة مميزة جديدة</label>
+                <input asp-for="FeaturedImage" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+                <small class="text-muted">اترك فارغاً للإبقاء على الصورة الحالية</small>
+            </div>
+            <button type="submit" class="btn btn-primary">تحديث</button>
+            <a href="/analyst/articles" class="btn btn-outline-secondary">إلغاء</a>
+        </form>
+    </div>
+</div>
+@section Scripts {
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+@{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+<script>
+    const quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        direction: 'rtl',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'header': [2, 3, false] }],
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                [{ 'align': [] }],
+                ['link'],
+                ['clean']
+            ]
+        }
+    });
+
+    const existing = document.getElementById('ContentAr').value;
+    if (existing) quill.clipboard.dangerouslyPasteHTML(existing);
+
+    quill.on('text-change', function () {
+        document.getElementById('ContentAr').value = quill.root.innerHTML.trim() === '<p><br></p>' ? '' : quill.getSemanticHTML();
+    });
+
+    document.querySelector('form').addEventListener('submit', function () {
+        document.getElementById('ContentAr').value = quill.root.innerHTML.trim() === '<p><br></p>' ? '' : quill.getSemanticHTML();
+    });
+</script>
+}

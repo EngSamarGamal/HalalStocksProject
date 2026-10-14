@@ -1,0 +1,5 @@
+@model IEnumerable<HalalStocks.Models.FatwaQuestion>
+@foreach (var q in Model)
+{
+    <partial name="~/Views/Shared/_FatwaCard.cshtml" model="q" />
+}

@@ -1,0 +1,110 @@
+@using HalalStocks.Helpers
+@using HalalStocks.Models
+@model HalalStocks.Models.Article
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = Model.TitleAr;
+    var (statusLabel, statusBadgeClass) = ArticleApprovalStatusHelper.Badge(Model.ApprovalStatus);
+    var authorName = UserDisplayNameHelper.DisplayName(Model.Author);
+}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="/admin/analytics?tab=articles" class="btn btn-outline-secondary btn-sm">→ رجوع</a>
+    <h2 class="mb-0">مراجعة المقال</h2>
+</div>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div>
+        <span class="badge @statusBadgeClass">@statusLabel</span>
+        بواسطة <a href="/admin/analytics/analysts/@Model.AuthorId">@authorName</a>
+        &middot; @Model.CreatedAt.ToString("dd/MM/yyyy")
+    </div>
+    <div>
+        @if (Model.ApprovalStatus == ArticleApprovalStatus.Pending)
+        {
+            <form method="post" action="/admin/analytics/articles/@Model.Id/approve" class="d-inline">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-sm btn-success">موافقة ونشر</button>
+            </form>
+        }
+        @if (Model.ApprovalStatus is ArticleApprovalStatus.Pending or ArticleApprovalStatus.Approved)
+        {
+            <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#hideModal">إخفاء</button>
+        }
+        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal">حذف</button>
+    </div>
+</div>
+
+@if (Model.ApprovalStatus == ArticleApprovalStatus.Hidden && !string.IsNullOrEmpty(Model.HideReason))
+{
+    <div class="alert alert-danger">سبب الإخفاء: @Model.HideReason</div>
+}
+
+<div class="card">
+    <div class="card-body">
+        @if (Model.FeaturedImagePath != null)
+        {
+            <img src="@Model.FeaturedImagePath" class="img-fluid rounded mb-4" style="max-height:350px;object-fit:cover" alt="">
+        }
+        <h3 class="mb-3">@Model.TitleAr</h3>
+        <style>
+            .article-content { overflow-wrap: break-word; word-break: break-word; overflow-x: hidden; }
+            .article-content img, .article-content video, .article-content table, .article-content pre, .article-content iframe { max-width: 100%; height: auto; }
+            .article-content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .article-content pre { white-space: pre-wrap; }
+        </style>
+        <div class="article-content">
+            @Html.Raw(Model.ContentAr)
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="/admin/analytics/articles/@Model.Id/delete">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">تأكيد الحذف</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">هل أنت متأكد من حذف «@Model.TitleAr»؟</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">حذف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="hideModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="/admin/analytics/articles/@Model.Id/hide">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">إخفاء المقال</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>سيتم إخفاء «@Model.TitleAr» حتى يقوم المحلل بتعديله وتوافق عليه الإدارة مجدداً.</p>
+                    <label class="form-label fw-semibold">سبب الإخفاء *</label>
+                    <textarea name="reason" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-warning">إخفاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.querySelectorAll('.article-content').forEach(el => {
+        el.innerHTML = el.innerHTML.replaceAll('&nbsp;', ' ');
+    });
+</script>
+}

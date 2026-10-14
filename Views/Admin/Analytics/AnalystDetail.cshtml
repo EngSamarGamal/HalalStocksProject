@@ -1,0 +1,78 @@
+@using HalalStocks.Helpers
+@model HalalStocks.ViewModels.Admin.AnalystDetailViewModel
+@{
+    Layout = "_AdminLayout";
+    var name = UserDisplayNameHelper.DisplayName(Model.Profile.User);
+    ViewData["Title"] = name;
+}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="/admin/analytics?tab=analysts" class="btn btn-outline-secondary btn-sm">→ رجوع</a>
+    <h2 class="mb-0">@name</h2>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="card shadow-sm text-center">
+            <div class="card-body p-4">
+                @if (!string.IsNullOrEmpty(Model.Profile.PhotoPath))
+                {
+                    <img src="@Model.Profile.PhotoPath" class="rounded-circle mb-3" style="width:120px;height:120px;object-fit:cover" alt="@name">
+                }
+                else
+                {
+                    <i class="bi bi-person-circle text-muted d-block mb-3" style="font-size:6rem"></i>
+                }
+                <h5>@name</h5>
+                <p class="text-muted small">@Model.Profile.User.Email</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-secondary text-white fw-bold">النبذة التعريفية</div>
+            <div class="card-body p-4">
+                <p class="mb-0">@(string.IsNullOrEmpty(Model.Profile.SummaryAr) ? "لم يقم المحلل بإضافة نبذة تعريفية بعد." : Model.Profile.SummaryAr)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h4 class="mb-3">مقالات المحلل</h4>
+
+@if (Model.Articles.Any())
+{
+    <table class="table table-hover table-bordered align-middle">
+        <thead class="table-light">
+            <tr><th>العنوان</th><th>الحالة</th><th>تاريخ الإنشاء</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var a in Model.Articles)
+            {
+                var (label, badgeClass) = ArticleApprovalStatusHelper.Badge(a.ApprovalStatus);
+                <tr>
+                    <td><a href="/admin/analytics/articles/@a.Id">@a.TitleAr</a></td>
+                    <td><span class="badge @badgeClass">@label</span></td>
+                    <td>@a.CreatedAt.ToString("dd/MM/yyyy")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (Model.TotalPages > 1)
+    {
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                @for (int i = 1; i <= Model.TotalPages; i++)
+                {
+                    <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                        <a class="page-link" href="?page=@i">@i</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+}
+else
+{
+    <div class="text-center text-muted py-5"><p>لم يقم هذا المحلل بإضافة أي مقالات بعد.</p></div>
+}

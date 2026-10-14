@@ -1,0 +1,112 @@
+@model HalalStocks.ViewModels.Admin.FatwaAnswerFormViewModel
+@using HalalStocks.Models
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "الرد على سؤال";
+}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="mb-0">الرد على سؤال</h2>
+    <a href="/admin/fatawa" class="btn btn-outline-secondary btn-sm">← العودة للقائمة</a>
+</div>
+
+<div class="row g-4" style="max-width:1100px">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white fw-bold"><i class="bi bi-question-circle ms-2"></i>السؤال</div>
+            <div class="card-body">
+                <p class="fs-5 mb-3" style="white-space:pre-line;line-height:1.9">@Model.Question</p>
+                <div class="row small text-muted g-2">
+                    <div class="col-sm-6 col-lg-3"><i class="bi bi-person ms-1"></i>@Model.AskerName</div>
+                    <div class="col-sm-6 col-lg-3"><i class="bi bi-envelope ms-1"></i>@(Model.AskerEmail ?? "—")</div>
+                    <div class="col-sm-6 col-lg-3"><i class="bi bi-telephone ms-1"></i>@(Model.AskerPhone ?? "—")</div>
+                    <div class="col-sm-6 col-lg-3"><i class="bi bi-calendar3 ms-1"></i>@Model.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <form method="post" id="answerForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="AnswerHtml" />
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white fw-bold d-flex justify-content-between">
+                    <span><i class="bi bi-pencil-square ms-2"></i>الإجابة</span>
+                    <span>
+                        @switch (Model.Status)
+                        {
+                            case FatwaStatus.Pending: <span class="badge bg-warning text-dark">بانتظار الرد</span> break;
+                            case FatwaStatus.Answered: <span class="badge bg-info text-dark">تمت الإجابة</span> break;
+                            case FatwaStatus.Published: <span class="badge bg-light text-success">منشور</span> break;
+                        }
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div id="quill-editor" style="height:340px; font-family:'Tajawal',sans-serif; font-size:1.05rem;"></div>
+                    <span asp-validation-for="AnswerHtml" class="text-danger small d-block mt-1"></span>
+
+                    <hr>
+                    <div class="d-flex flex-wrap gap-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="IsPublished" name="IsPublished" value="true" @(Model.IsPublished ? "checked" : "")>
+                            <label class="form-check-label fw-semibold" for="IsPublished">نشر للعامة (Publish)</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="IsFeatured" name="IsFeatured" value="true" @(Model.IsFeatured ? "checked" : "")>
+                            <label class="form-check-label fw-semibold" for="IsFeatured">عرض في الصفحة الرئيسية — أهم الأسئلة (Featured)</label>
+                        </div>
+                    </div>
+                    <small class="text-muted d-block mt-2">لا يظهر السؤال للعامة إلا بعد كتابة الإجابة وتفعيل «نشر». ولا يمكن إظهاره في الصفحة الرئيسية إلا وهو منشور.</small>
+                </div>
+                <div class="card-footer bg-white">
+                    <button type="submit" class="btn btn-success px-4">حفظ</button>
+                    <a href="/admin/fatawa" class="btn btn-outline-secondary">إلغاء</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script>
+    const quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        direction: 'rtl',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'header': [2, 3, false] }],
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                [{ 'align': [] }],
+                ['blockquote', 'link'],
+                ['clean']
+            ]
+        }
+    });
+
+    const field = document.getElementById('AnswerHtml');
+    if (field.value) quill.clipboard.dangerouslyPasteHTML(field.value);
+
+    function syncField() {
+        field.value = quill.getText().trim() === '' ? '' : quill.getSemanticHTML();
+    }
+    quill.on('text-change', syncField);
+
+    const publish = document.getElementById('IsPublished');
+    const feature = document.getElementById('IsFeatured');
+    // Featured only makes sense for a published question; unpublishing clears it.
+    function syncFlags() {
+        feature.disabled = !publish.checked;
+        if (!publish.checked) feature.checked = false;
+    }
+    publish.addEventListener('change', syncFlags);
+    syncFlags();
+
+    document.getElementById('answerForm').addEventListener('submit', function () {
+        syncField();
+        feature.disabled = false; // a disabled checkbox wouldn't post; the server re-enforces the rule anyway
+    });
+</script>
+}

@@ -1,0 +1,219 @@
+@inject Microsoft.AspNetCore.Identity.UserManager<HalalStocks.Models.AppUser> _layoutUserManager
+@inject HalalStocks.Data.AppDbContext _layoutDb
+@inject HalalStocks.Services.Interfaces.ISiteSettingsService _siteSettingsService
+@inject Microsoft.Extensions.Configuration.IConfiguration _cfg
+@using Microsoft.EntityFrameworkCore
+@{
+    HalalStocks.Models.AppUser? _currentUser = null;
+    bool _hasPortfolioRequest = false;
+    if (User.Identity?.IsAuthenticated == true)
+    {
+        _currentUser = await _layoutUserManager.GetUserAsync(User);
+        if (_currentUser != null)
+            _hasPortfolioRequest = await _layoutDb.PortfolioRequests.AnyAsync(r => r.UserId == _currentUser.Id);
+    }
+    var _siteSettings = await _siteSettingsService.GetSettingsAsync();
+
+    var _baseUrl    = (_cfg["SiteUrl"] ?? "https://kasheif.com").TrimEnd('/');
+    var _pageTitle  = ViewData["Title"] as string;
+    var _fullTitle  = string.IsNullOrEmpty(_pageTitle) ? "كاشف" : $"{_pageTitle} - كاشف";
+    var _canonicalRaw = ViewData["Canonical"] as string ?? (Context.Request.Path.Value ?? "/");
+    var _canonical  = _canonicalRaw.StartsWith("http") ? _canonicalRaw : _baseUrl + _canonicalRaw;
+    var _description = ViewData["Description"] as string
+        ?? "كاشف - فرز الأسهم المصرية وفق أحكام الشريعة الإسلامية، حاسبة تطهير الدخل المحظور، حاسبة زكاة الأسهم، وفتح محافظ استثمارية متوافقة مع الشريعة.";
+    var _noIndex    = ViewData["NoIndex"] as bool? ?? false;
+    var _ogImage    = ViewData["OgImage"] as string ?? (_baseUrl + "/logo3.jpeg");
+}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@_fullTitle</title>
+    <link rel="canonical" href="@_canonical" />
+    <meta name="description" content="@_description" />
+    @if (_noIndex)
+    {
+        <meta name="robots" content="noindex, follow" />
+    }
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="كاشف" />
+    <meta property="og:locale" content="ar_AR" />
+    <meta property="og:title" content="@_fullTitle" />
+    <meta property="og:description" content="@_description" />
+    <meta property="og:url" content="@_canonical" />
+    <meta property="og:image" content="@_ogImage" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
+    <style>
+        body { font-family: 'Tajawal', sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+        main { flex: 1; }
+        .badge-halal { background-color: #198754; }
+        .badge-mustpurify { background-color: #ffc107; color: #000; }
+        .badge-prohibited { background-color: #dc3545; }
+        .navbar-brand { font-size: 1.4rem; font-weight: 700; }
+        .navbar-logo { height: 48px; width: 48px; object-fit: cover; border-radius: 50%; border: 2px solid rgba(255,255,255,0.7); box-shadow: 0 0 0 1px rgba(255,255,255,0.25); }
+        .navbar-dark .btn-outline-light:hover, .navbar-dark .btn-outline-light:focus { background-color: rgba(255,255,255,0.15) !important; color: #fff !important; border-color: rgba(255,255,255,0.8) !important; }
+        @@media (min-width: 992px) {
+            .navbar-nav .nav-item.dropdown:hover > .dropdown-menu { display: block; margin-top: 0; }
+        }
+    </style>
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" asp-controller="Home" asp-action="Index">
+                <img src="/logo3.jpeg" alt="كاشف" class="navbar-logo">
+                كاشف
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Index">الرئيسية</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="purificationToolsDrop" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">أدوات التطهير</a>
+                        <ul class="dropdown-menu" aria-labelledby="purificationToolsDrop">
+                            <li><a class="dropdown-item" href="/calculator">حاسبة تطهير الدخل المحظور</a></li>
+                            <li><a class="dropdown-item" href="/zakat">حاسبة زكاة المضارب</a></li>
+                            <li><a class="dropdown-item" href="/capital-purification">حاسبة تطهير رأس المال</a></li>
+                            <li><a class="dropdown-item" href="/dividend-purification">حاسبة تطهير توزيعات الأرباح</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/portfolio-request">فتح محفظة استثمارية</a></li>
+                    @if (_currentUser != null)
+                    {
+                        <li class="nav-item"><a class="nav-link" href="/recommendations">حاسبة المخاطر</a></li>
+                    }
+                    <li class="nav-item"><a class="nav-link" href="/fatawa">فتاوى المال</a></li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    @if (_currentUser != null)
+                    {
+                        <li class="nav-item d-flex align-items-center">
+                            <span class="navbar-text text-white ms-3">مرحباً، @(_currentUser.FirstName ?? _currentUser.UserName)</span>
+                        </li>
+                        @if (_currentUser.Role == HalalStocks.Models.UserRole.SuperAdmin ||
+                             _currentUser.Role == HalalStocks.Models.UserRole.Admin ||
+                             _currentUser.Role == HalalStocks.Models.UserRole.Editor)
+                        {
+                            <li class="nav-item">
+                                <a class="btn btn-warning btn-sm ms-2 fw-bold" href="/admin">لوحة التحكم</a>
+                            </li>
+                        }
+                        @if (_hasPortfolioRequest)
+                        {
+                            <li class="nav-item">
+                                <a class="btn btn-outline-light btn-sm ms-2" href="/portfolio-request/my-request">طلبي</a>
+                            </li>
+                        }
+                        <li class="nav-item">
+                            <a class="btn btn-outline-light btn-sm ms-2" href="/account/profile">ملفي</a>
+                        </li>
+                        <li class="nav-item">
+                            <form method="post" action="/account/logout" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-light btn-sm ms-2">تسجيل الخروج</button>
+                            </form>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="nav-item"><a class="nav-link" href="/account/login">تسجيل الدخول</a></li>
+                        <li class="nav-item"><a class="nav-link btn btn-outline-light btn-sm px-3 ms-1" href="/account/register">إنشاء حساب</a></li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container py-4">
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @TempData["Success"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                @TempData["Error"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @RenderBody()
+    </main>
+
+    <footer class="bg-dark text-white text-center py-3 mt-5">
+        <p class="mb-0">© @DateTime.Now.Year كاشف - فرز الأسهم المصرية وفق أحكام الشريعة الإسلامية</p>
+        @{
+            bool _hasAnySocial = !string.IsNullOrEmpty(_siteSettings.WhatsAppNumber)
+                              || !string.IsNullOrEmpty(_siteSettings.FacebookUrl)
+                              || !string.IsNullOrEmpty(_siteSettings.TelegramUrl);
+        }
+        @if (_hasAnySocial)
+        {
+            <div class="d-flex justify-content-center gap-3 mt-2">
+                @if (!string.IsNullOrEmpty(_siteSettings.WhatsAppNumber))
+                {
+                    <a href="https://wa.me/@_siteSettings.WhatsAppNumber" target="_blank" title="واتس آب" class="footer-social-link">
+                        <svg viewBox="0 0 24 24" width="32" height="32" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    </a>
+                }
+                @if (!string.IsNullOrEmpty(_siteSettings.FacebookUrl))
+                {
+                    <a href="@_siteSettings.FacebookUrl" target="_blank" title="فيسبوك" class="footer-social-link">
+                        <svg viewBox="0 0 24 24" width="32" height="32" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    </a>
+                }
+                @if (!string.IsNullOrEmpty(_siteSettings.TelegramUrl))
+                {
+                    <a href="@_siteSettings.TelegramUrl" target="_blank" title="تيليجرام" class="footer-social-link">
+                        <svg viewBox="0 0 24 24" width="32" height="32" fill="#229ED9"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                    </a>
+                }
+            </div>
+        }
+    </footer>
+
+    @if (!string.IsNullOrEmpty(_siteSettings.WhatsAppNumber))
+    {
+        var _waMessage = Uri.EscapeDataString(_siteSettings.WhatsAppMessage ?? "مرحباً، أريد الاستفسار");
+        <a href="https://wa.me/@(_siteSettings.WhatsAppNumber)?text=@_waMessage"
+           target="_blank"
+           class="whatsapp-float"
+           title="تواصل معنا على واتس آب">
+            <svg viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </a>
+    }
+
+    @{
+        var _telegramFloatUrl = string.IsNullOrEmpty(_siteSettings.TelegramUrl)
+            ? "https://t.me/kashifindex"
+            : _siteSettings.TelegramUrl;
+    }
+    <a href="@_telegramFloatUrl"
+       target="_blank"
+       rel="noopener"
+       class="telegram-float"
+       title="انضم لقناتنا على تيليجرام">
+        <svg viewBox="0 0 24 24" fill="white"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+    </a>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

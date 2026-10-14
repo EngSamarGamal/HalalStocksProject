@@ -1,0 +1,67 @@
+@model AnalystArticleFormViewModel
+@{
+    ViewData["Title"] = "مقال جديد";
+    ViewData["NoIndex"] = true;
+}
+
+<h2 class="mb-4">مقال تحليلي جديد</h2>
+
+<partial name="~/Views/Analyst/_AnalystNav.cshtml" model="@("articles")" />
+
+<div class="alert alert-info">مقالاتك تخضع لمراجعة الإدارة قبل نشرها للجمهور.</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/analyst/articles/create" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">العنوان *</label>
+                <input asp-for="TitleAr" class="form-control" required>
+                <span asp-validation-for="TitleAr" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">المحتوى *</label>
+                <div id="quill-editor" style="height:400px; font-family:'Tajawal',sans-serif; font-size:1rem;"></div>
+                <textarea asp-for="ContentAr" id="ContentAr" class="d-none"></textarea>
+                <span asp-validation-for="ContentAr" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">صورة مميزة</label>
+                <input asp-for="FeaturedImage" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+                <small class="text-muted">الحد الأقصى: 2 ميجابايت، الصيغ المقبولة: JPG, PNG, WebP</small>
+            </div>
+            <button type="submit" class="btn btn-success">إرسال للمراجعة</button>
+            <a href="/analyst/articles" class="btn btn-outline-secondary">إلغاء</a>
+        </form>
+    </div>
+</div>
+@section Scripts {
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+@{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+<script>
+    const quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        direction: 'rtl',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'header': [2, 3, false] }],
+                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                [{ 'align': [] }],
+                ['link'],
+                ['clean']
+            ]
+        }
+    });
+
+    quill.on('text-change', function () {
+        document.getElementById('ContentAr').value = quill.root.innerHTML.trim() === '<p><br></p>' ? '' : quill.getSemanticHTML();
+    });
+
+    document.querySelector('form').addEventListener('submit', function () {
+        document.getElementById('ContentAr').value = quill.root.innerHTML.trim() === '<p><br></p>' ? '' : quill.getSemanticHTML();
+    });
+</script>
+}

@@ -1,0 +1,18 @@
+@model HalalStocks.Models.StockIndex
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة مؤشر";
+}
+<h2 class="mb-4">إضافة مؤشر جديد</h2>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/admin/indices/create">
+            @Html.AntiForgeryToken()
+            @await Html.PartialAsync("~/Views/Admin/Indices/_IndexForm.cshtml", Model)
+            <div class="mt-3">
+                <button type="submit" class="btn btn-success">حفظ</button>
+                <a href="/admin/indices" class="btn btn-outline-secondary">إلغاء</a>
+            </div>
+        </form>
+    </div>
+</div>

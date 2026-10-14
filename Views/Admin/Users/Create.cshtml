@@ -1,0 +1,47 @@
+@model UserFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة مستخدم";
+}
+<h2 class="mb-4">إضافة مستخدم جديد</h2>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/admin/users/create">
+            @Html.AntiForgeryToken()
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-danger">
+                    @foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        <div>@err.ErrorMessage</div>
+                    }
+                </div>
+            }
+            <div class="mb-3">
+                <label class="form-label">الاسم الكامل *</label>
+                <input asp-for="FullName" class="form-control" required>
+                <span asp-validation-for="FullName" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">البريد الإلكتروني *</label>
+                <input asp-for="Email" type="email" class="form-control" required>
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">كلمة المرور *</label>
+                <input asp-for="Password" type="password" class="form-control" required>
+                <small class="text-muted">يجب أن تحتوي على 8 أحرف على الأقل، حرف كبير، رقم، ورمز خاص</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">الدور</label>
+                <select asp-for="Role" class="form-select">
+                    <option value="SuperAdmin">SuperAdmin</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Editor">Editor</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-secondary">حفظ</button>
+            <a href="/admin/users" class="btn btn-outline-secondary">إلغاء</a>
+        </form>
+    </div>
+</div>

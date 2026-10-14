@@ -1,0 +1,80 @@
+@model HalalStocks.ViewModels.Admin.PortfolioSectionFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة قسم";
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>إضافة قسم جديد</h2>
+    <a href="/admin/portfolio-sections" class="btn btn-outline-secondary">رجوع</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/admin/portfolio-sections/create" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">العنوان *</label>
+                <input asp-for="Title" class="form-control" required>
+                <span asp-validation-for="Title" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">المحتوى</label>
+                <div id="quill-editor" style="height:300px; font-family:'Tajawal',sans-serif;"></div>
+                <textarea asp-for="Content" id="Content" class="d-none"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">صورة القسم</label>
+                <input asp-for="Image" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+                <small class="text-muted">الحد الأقصى: 20 ميجابايت — JPG, PNG, WebP</small>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">الترتيب</label>
+                    <input asp-for="DisplayOrder" type="number" class="form-control" min="0">
+                </div>
+            </div>
+
+            <div class="mb-3 form-check form-switch">
+                <input asp-for="IsActive" class="form-check-input" type="checkbox">
+                <label asp-for="IsActive" class="form-check-label">نشط (ظاهر للزوار)</label>
+            </div>
+
+            <button type="submit" class="btn btn-success">حفظ</button>
+            <a href="/admin/portfolio-sections" class="btn btn-outline-secondary">إلغاء</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script>
+    const quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        direction: 'rtl',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ header: [2, 3, false] }],
+                [{ list: 'ordered' }, { list: 'bullet' }],
+                [{ align: [] }],
+                ['link'],
+                ['clean']
+            ]
+        }
+    });
+
+    quill.on('text-change', function () {
+        document.getElementById('Content').value =
+            quill.root.innerHTML.trim() === '<p><br></p>' ? '' : quill.getSemanticHTML();
+    });
+
+    document.querySelector('form').addEventListener('submit', function () {
+        document.getElementById('Content').value =
+            quill.root.innerHTML.trim() === '<p><br></p>' ? '' : quill.getSemanticHTML();
+    });
+</script>
+}

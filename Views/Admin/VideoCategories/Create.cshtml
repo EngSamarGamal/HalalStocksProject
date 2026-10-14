@@ -1,0 +1,25 @@
+@model VideoCategoryFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة فئة فيديو";
+}
+<h2 class="mb-4">إضافة فئة فيديو جديدة</h2>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/admin/video-categories/create">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">الاسم *</label>
+                <input asp-for="Name" class="form-control">
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-primary">حفظ</button>
+            <a href="/admin/video-categories" class="btn btn-outline-secondary">إلغاء</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+@{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

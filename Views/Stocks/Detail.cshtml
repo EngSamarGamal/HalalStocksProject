@@ -1,0 +1,314 @@
+@model StockDetailViewModel
+@{
+    ViewData["Title"] = Model.Stock.NameAr;
+}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <a href="/" class="btn btn-outline-secondary mb-3">← العودة</a>
+        <div class="card shadow-sm">
+            @{
+                var headerClass = Model.Stock.ShariahStatus switch
+                {
+                    ShariahStatus.Halal                       => "bg-success text-white",
+                    ShariahStatus.AwaitingFinancialStatements => "bg-info text-dark",
+                    ShariahStatus.StatusBlocked               => "bg-danger text-white",
+                    _                                         => "bg-danger text-white"
+                };
+            }
+            <div class="card-header @headerClass d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">@Model.Stock.NameAr</h4>
+                <span class="badge bg-light text-dark fs-6">@Model.Stock.TickerSymbol</span>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-4">القطاع</dt>
+                    <dd class="col-sm-8"><span class="badge bg-secondary">@Model.Stock.Category.NameAr</span></dd>
+                    <dt class="col-sm-4">البورصة</dt>
+                    <dd class="col-sm-8">@Model.Stock.Exchange</dd>
+                    <dt class="col-sm-4">الحكم الشرعي</dt>
+                    <dd class="col-sm-8">
+                        @switch (Model.Stock.ShariahStatus)
+                        {
+                            case ShariahStatus.Halal:
+                                <span class="badge bg-success fs-6">🟢 متوافق مع الشريعة</span>
+                                break;
+                            case ShariahStatus.MustPurify:
+                                <span class="badge bg-danger text-dark fs-6">🟡 غير متوافق مع الشريعة</span>
+                                break;
+                            case ShariahStatus.Prohibited:
+                                <span class="badge bg-danger fs-6">🔴 محظور</span>
+                                break;
+                            case ShariahStatus.NotReviewed:
+                                <span class="badge bg-secondary fs-6">⬜ لم يتم مراجعته</span>
+                                break;
+                            case ShariahStatus.AwaitingFinancialStatements:
+                                <span class="badge bg-info text-dark fs-6">🕐 في انتظار القوائم المالية المعتمدة</span>
+                                break;
+                            case ShariahStatus.StatusBlocked:
+                                <span class="badge bg-danger fs-6">🚫 تم حجب إعلان الموقف الشرعي للسهم</span>
+                                break;
+                        }
+                    </dd>
+                    @if (Model.Stock.PurityGrades != PurityGrade.None)
+                    {
+                        <dt class="col-sm-4">درجة النقاء</dt>
+                        <dd class="col-sm-8">
+                            @{
+                                var purityLabels = new Dictionary<PurityGrade, (string Label, string BadgeClass)>
+                                {
+                                    [PurityGrade.Pure]                        = ("نقي",                            "bg-success"),
+                                    [PurityGrade.SemiPure]                    = ("شبه نقي",                        "bg-success"),
+                                    [PurityGrade.ShariaMixedA]                = ("شرعي مختلط A",                   "bg-warning text-dark"),
+                                    [PurityGrade.ShariaMixedB]                = ("شرعي مختلط B",                   "bg-warning text-dark"),
+                                    [PurityGrade.ShariaMixedC]                = ("شرعي مختلط C",                   "bg-warning text-dark"),
+                                    [PurityGrade.NonShariahProhibitedIncome]  = ("غير شرعي دخل محظور",             "bg-danger"),
+                                    [PurityGrade.NonShariahDebts]             = ("غير شرعي قروض",                  "bg-danger"),
+                                    [PurityGrade.NonShariahRibaInvestments]   = ("غير شرعي استثمارات ربوية",       "bg-danger"),
+                                    [PurityGrade.NonShariahActivity]          = ("غير شرعي نشاط",                  "bg-danger")
+                                };
+                            }
+                            @foreach (var (grade, (label, css)) in purityLabels)
+                            {
+                                if (Model.Stock.PurityGrades.HasFlag(grade))
+                                {
+                                    <span class="badge @css me-1">@label</span>
+                                }
+                            }
+                        </dd>
+                    }
+                    @if (Model.Stock.PurificationRatio.HasValue)
+                    {
+                        <dt class="col-sm-4">نسبة التطهير</dt>
+                        <dd class="col-sm-8 fw-semibold">@Model.Stock.PurificationRatio%</dd>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Stock.Notes))
+                    {
+                        <dt class="col-sm-4">ملاحظات</dt>
+                        <dd class="col-sm-8">@Model.Stock.Notes</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-light fw-bold text-dark">
+                📈 الرسم البياني
+            </div>
+            <div class="card-body p-0">
+                <div class="tradingview-widget-container" style="height:420px;">
+                    <div id="tv_chart_@Model.Stock.TickerSymbol" style="height:100%;width:100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        @{
+            var hasScreeningData = Model.Stock.ProhibitedIncomeRatio.HasValue
+                || Model.Stock.NonShariahInvestmentRatio.HasValue
+                || Model.Stock.NonShariahObligationsRatio.HasValue
+                || Model.Stock.LiquidAssetsRatio.HasValue
+                || Model.Stock.TotalCompanyShares.HasValue
+                || Model.Stock.TotalCompanyAssets.HasValue
+                || Model.Stock.LastReviewedAt.HasValue
+                || !string.IsNullOrEmpty(Model.Stock.AdditionalNotes)
+                || Model.Stock.Indices.Any();
+        }
+        @if (hasScreeningData)
+        {
+            <div class="card shadow-sm mt-4">
+                @{
+                    var detailHeaderClass = Model.Stock.ShariahStatus switch
+                    {
+                        ShariahStatus.Halal                       => "bg-success bg-opacity-10 text-success",
+                        ShariahStatus.AwaitingFinancialStatements => "bg-info bg-opacity-10 text-info",
+                        ShariahStatus.StatusBlocked               => "bg-danger bg-opacity-10 text-danger",
+                        _                                         => "bg-danger bg-opacity-10 text-danger"
+                    };
+                }
+                <div class="card-header @detailHeaderClass fw-bold">
+                    الموقف الشرعي التفصيلي
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        @if (Model.Stock.ProhibitedIncomeRatio.HasValue)
+                        {
+                            <dt class="col-sm-5">الدخل المحظور</dt>
+                            <dd class="col-sm-7">@Model.Stock.ProhibitedIncomeRatio%</dd>
+                        }
+                        @if (Model.Stock.NonShariahInvestmentRatio.HasValue)
+                        {
+                            <dt class="col-sm-5">أنشطة استثمارية غير شرعية</dt>
+                            <dd class="col-sm-7">@Model.Stock.NonShariahInvestmentRatio%</dd>
+                        }
+                        @if (Model.Stock.NonShariahObligationsRatio.HasValue)
+                        {
+                            <dt class="col-sm-5">التزامات غير شرعية</dt>
+                            <dd class="col-sm-7">@Model.Stock.NonShariahObligationsRatio%</dd>
+                        }
+                        @if (Model.Stock.LiquidAssetsRatio.HasValue)
+                        {
+                            <dt class="col-sm-5">الأصول السائلة</dt>
+                            <dd class="col-sm-7">@Model.Stock.LiquidAssetsRatio%</dd>
+                        }
+                        @if (Model.Stock.TotalCompanyShares.HasValue)
+                        {
+                            <dt class="col-sm-5">إجمالي أسهم الشركة</dt>
+                            <dd class="col-sm-7"><span dir="ltr">@Model.Stock.TotalCompanyShares.Value.ToString("N0")</span> سهم</dd>
+                        }
+                        @if (Model.Stock.TotalCompanyAssets.HasValue)
+                        {
+                            <dt class="col-sm-5">إجمالي أصول الشركة</dt>
+                            <dd class="col-sm-7"><span dir="ltr">@Model.Stock.TotalCompanyAssets.Value.ToString("N0")</span> جنيه</dd>
+                        }
+                        @if (Model.Stock.LastReviewedAt.HasValue)
+                        {
+                            <dt class="col-sm-5">تاريخ المراجعة</dt>
+                            <dd class="col-sm-7">@Model.Stock.LastReviewedAt.Value.ToString("dd/MM/yyyy")</dd>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.Stock.AdditionalNotes))
+                        {
+                            <dt class="col-sm-5">ملاحظات إضافية</dt>
+                            <dd class="col-sm-7">@Model.Stock.AdditionalNotes</dd>
+                        }
+                        @if (Model.Stock.Indices.Any())
+                        {
+                            <dt class="col-sm-5">المؤشرات</dt>
+                            <dd class="col-sm-7">
+                                @foreach (var idx in Model.Stock.Indices)
+                                {
+                                    <span class="badge bg-info text-dark ms-1">@(!string.IsNullOrEmpty(idx.CommonName) ? idx.CommonName : idx.NameAr)</span>
+                                }
+                            </dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        }
+
+        @if (Model.Stock.FinancialReviews.Any())
+        {
+            var allReviews = Model.Stock.FinancialReviews.OrderByDescending(r => r.ReviewDate).ToList();
+            var displayedReviews = allReviews.Take(8).ToList();
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-light fw-bold text-dark">
+                    📋 سجل المراجعات الشرعية
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>تاريخ المراجعة</th>
+                                    <th>نوع القوائم</th>
+                                    <th>الدخل المحظور</th>
+                                    <th>الاستثمارات غير الشرعية</th>
+                                    <th>الالتزامات غير الشرعية</th>
+                                    <th>الأصول السائلة</th>
+                                    <th>الحكم</th>
+                                    <th>درجة النقاء</th>
+                                    <th>ملاحظات</th>
+                                    <th>PDF</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in displayedReviews)
+                                {
+                                    <tr>
+                                        <td>@r.ReviewDate.ToString("dd/MM/yyyy")</td>
+                                        <td>@r.StatementType.NameAr</td>
+                                        <td>@(r.ProhibitedIncomeRatio.HasValue ? $"{r.ProhibitedIncomeRatio:0.##}%" : "—")</td>
+                                        <td>@(r.NonShariahInvestmentRatio.HasValue ? $"{r.NonShariahInvestmentRatio:0.##}%" : "—")</td>
+                                        <td>@(r.NonShariahObligationsRatio.HasValue ? $"{r.NonShariahObligationsRatio:0.##}%" : "—")</td>
+                                        <td>@(r.LiquidAssetsRatio.HasValue ? $"{r.LiquidAssetsRatio:0.##}%" : "—")</td>
+                                        <td>
+                                            @switch (r.ShariahStatus)
+                                            {
+                                                case ShariahStatus.Halal:
+                                                    <span class="badge bg-success">🟢 متوافق مع الشريعة</span>
+                                                    break;
+                                                case ShariahStatus.MustPurify:
+                                                    <span class="badge bg-warning text-dark">🟡 غير متوافق مع الشريعة</span>
+                                                    break;
+                                                case ShariahStatus.StatusBlocked:
+                                                    <span class="badge bg-danger">🔴 تم حجب إعلان الموقف الشرعي للسهم</span>
+                                                    break;
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (r.PurityGrades != PurityGrade.None)
+                                            {
+                                                var reviewPurityLabels = new Dictionary<PurityGrade, (string Label, string Css)>
+                                                {
+                                                    [PurityGrade.Pure]                       = ("نقي",                         "bg-success"),
+                                                    [PurityGrade.SemiPure]                   = ("شبه نقي",                     "bg-success"),
+                                                    [PurityGrade.ShariaMixedA]               = ("شرعي مختلط A",                "bg-warning text-dark"),
+                                                    [PurityGrade.ShariaMixedB]               = ("شرعي مختلط B",                "bg-warning text-dark"),
+                                                    [PurityGrade.ShariaMixedC]               = ("شرعي مختلط C",                "bg-warning text-dark"),
+                                                    [PurityGrade.NonShariahProhibitedIncome] = ("غير شرعي دخل محظور",          "bg-danger"),
+                                                    [PurityGrade.NonShariahDebts]            = ("غير شرعي قروض",               "bg-danger"),
+                                                    [PurityGrade.NonShariahRibaInvestments]  = ("غير شرعي استثمارات ربوية",   "bg-danger"),
+                                                    [PurityGrade.NonShariahActivity]         = ("غير شرعي نشاط",               "bg-danger")
+                                                };
+                                                foreach (var (grade, (label, css)) in reviewPurityLabels)
+                                                {
+                                                    if (r.PurityGrades.HasFlag(grade))
+                                                    {
+                                                        <span class="badge @css me-1">@label</span>
+                                                    }
+                                                }
+                                            }
+                                            else { <span>—</span> }
+                                        </td>
+                                        <td class="text-muted small">@(string.IsNullOrEmpty(r.Notes) ? "—" : r.Notes)</td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(r.PdfUrl))
+                                            {
+                                                <a href="@r.PdfUrl" target="_blank" class="btn btn-sm btn-outline-danger" title="تحميل PDF">
+                                                    <i class="bi bi-file-earmark-pdf"></i> تحميل
+                                                </a>
+                                            }
+                                            else { <span>—</span> }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (allReviews.Count > 8)
+                    {
+                        <div class="p-3 text-center border-top">
+                            <a href="/stocks/@Model.Stock.TickerSymbol/reviews" class="btn btn-outline-secondary btn-sm">
+                                عرض الكل (@allReviews.Count مراجعة)
+                            </a>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script>
+    new TradingView.widget({
+        "autosize": true,
+        "symbol": "EGX:@Model.Stock.TickerSymbol.ToUpper()",
+        "interval": "D",
+        "timezone": "Africa/Cairo",
+        "theme": "light",
+        "style": "1",
+        "locale": "ar",
+        "toolbar_bg": "#f8f9fa",
+        "enable_publishing": false,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": false,
+        "save_image": false,
+        "container_id": "tv_chart_@Model.Stock.TickerSymbol"
+    });
+</script>
+<style>
+    @@media (max-width: 768px) {
+        .tradingview-widget-container { height: 300px !important; }
+    }
+</style>
+}

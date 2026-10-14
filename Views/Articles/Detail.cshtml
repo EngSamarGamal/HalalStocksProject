@@ -1,0 +1,291 @@
+@using HalalStocks.Models
+@model ArticleDetailViewModel
+@{
+    ViewData["Title"] = Model.Article.TitleAr;
+    var isAnalytical = Model.Article.Type == ArticleType.Analytical;
+}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <a href="@(isAnalytical ? "/analytics" : "/articles")" class="btn btn-outline-secondary mb-3">← @(isAnalytical ? "التحليلات" : "المقالات")</a>
+        @if (Model.Article.FeaturedImagePath != null)
+        {
+            <img src="@Model.Article.FeaturedImagePath" class="img-fluid rounded mb-4 w-100" alt="" style="max-height:400px;object-fit:cover">
+        }
+        <h1 class="mb-2">@Model.Article.TitleAr</h1>
+
+        @if (isAnalytical)
+        {
+            <div class="d-flex align-items-center gap-2 mb-4">
+                <a href="/analysts/@Model.Article.AuthorId" class="text-decoration-none">
+                    @if (!string.IsNullOrEmpty(Model.AuthorPhotoPath))
+                    {
+                        <img src="@Model.AuthorPhotoPath" class="rounded-circle" style="width:40px;height:40px;object-fit:cover" alt="@Model.AuthorName">
+                    }
+                    else
+                    {
+                        <i class="bi bi-person-circle text-secondary" style="font-size:2.5rem"></i>
+                    }
+                </a>
+                <div>
+                    <a href="/analysts/@Model.Article.AuthorId" class="text-decoration-none text-dark fw-semibold d-block">@Model.AuthorName</a>
+                    <small class="text-muted">@Model.Article.PublishedAt?.ToString("dd MMMM yyyy")</small>
+                </div>
+            </div>
+        }
+        else
+        {
+            <small class="text-muted d-block mb-4">@Model.Article.ArticleCategory.NameAr &middot; @Model.Article.PublishedAt?.ToString("dd MMMM yyyy")</small>
+        }
+
+        <style>
+            .article-content {
+                overflow-wrap: break-word;
+                word-break: break-word;
+                overflow-x: hidden;
+            }
+            .article-content img,
+            .article-content video,
+            .article-content table,
+            .article-content pre,
+            .article-content iframe {
+                max-width: 100%;
+                height: auto;
+            }
+            .article-content table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .article-content pre {
+                white-space: pre-wrap;
+            }
+        </style>
+        <div class="article-content">
+            @Html.Raw(Model.Article.ContentAr)
+        </div>
+
+        @if (Model.ShowEngagement)
+        {
+            @Html.AntiForgeryToken()
+            <hr class="my-4">
+
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <button type="button" id="likeBtn"
+                        class="btn @(Model.HasLiked ? "btn-danger" : "btn-outline-danger")"
+                        data-article-id="@Model.Article.Id"
+                        data-authenticated="@Model.IsAuthenticated.ToString().ToLowerInvariant()">
+                    <i class="bi @(Model.HasLiked ? "bi-heart-fill" : "bi-heart")"></i>
+                    <span id="likeCount">@Model.LikeCount</span>
+                </button>
+                <span class="text-muted"><i class="bi bi-chat-dots"></i> <span id="commentCount">@Model.Comments.Count()</span> تعليق</span>
+            </div>
+
+            <h5 class="mb-3">التعليقات</h5>
+
+            @if (Model.IsAuthenticated)
+            {
+                <div class="mb-4">
+                    <textarea id="newCommentText" class="form-control mb-2" rows="3" placeholder="اكتب تعليقك..."></textarea>
+                    <button type="button" id="addCommentBtn" class="btn btn-success" data-article-id="@Model.Article.Id">إضافة تعليق</button>
+                    <div id="commentError" class="text-danger mt-1" style="display:none"></div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-light border">
+                    <a href="/account/login?returnUrl=/articles/@Model.Article.Id">سجّل الدخول</a> لتتمكن من الإعجاب والتعليق.
+                </div>
+            }
+
+            <div id="commentsList">
+                @foreach (var c in Model.Comments)
+                {
+                    var isOwn = Model.CurrentUserId != null && c.UserId == Model.CurrentUserId;
+                    <div class="border rounded p-3 mb-2" data-comment-id="@c.Id">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>@UserDisplayNameHelper.DisplayName(c.User)</strong>
+                                <small class="text-muted ms-2">@c.CreatedAt.ToString("dd/MM/yyyy")</small>
+                            </div>
+                            @if (isOwn || Model.CanModerateComments)
+                            {
+                                <div class="text-nowrap">
+                                    @if (isOwn)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-secondary js-edit-comment">تعديل</button>
+                                    }
+                                    <button type="button" class="btn btn-sm btn-outline-danger js-delete-comment">حذف</button>
+                                </div>
+                            }
+                        </div>
+                        <p class="mb-0 mt-2 comment-body">@c.ContentAr</p>
+                    </div>
+                }
+            </div>
+            @if (!Model.Comments.Any())
+            {
+                <p id="noComments" class="text-muted">لا توجد تعليقات بعد.</p>
+            }
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Replace &nbsp; ( ) saved by Quill with regular spaces so Arabic words wrap naturally
+    document.querySelectorAll('.article-content').forEach(el => {
+        el.innerHTML = el.innerHTML.replaceAll('&nbsp;', ' ');
+    });
+</script>
+
+@if (Model.ShowEngagement)
+{
+<script>
+(function () {
+    var tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+    var token = tokenEl ? tokenEl.value : '';
+
+    function post(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': token },
+            body: body
+        });
+    }
+
+    // Server API errors carry { message }; anything else falls back to a generic notice.
+    function apiJson(response) {
+        if (response.ok) return response.json();
+        return response.json()
+            .catch(function () { return { message: 'تعذر إتمام العملية' }; })
+            .then(function (e) { throw new Error(e.message || 'تعذر إتمام العملية'); });
+    }
+
+    function flash(el, message) {
+        if (!el) { alert(message); return; }
+        el.textContent = message;
+        el.style.display = 'block';
+    }
+
+    // ── Likes ───────────────────────────────────────────────
+    var likeBtn = document.getElementById('likeBtn');
+    if (likeBtn) {
+        likeBtn.addEventListener('click', function () {
+            if (likeBtn.getAttribute('data-authenticated') !== 'true') {
+                window.location.href = '/account/login?returnUrl=/articles/' + likeBtn.getAttribute('data-article-id');
+                return;
+            }
+            post('/api/articles/' + likeBtn.getAttribute('data-article-id') + '/like', null)
+                .then(apiJson)
+                .then(function (data) {
+                    document.getElementById('likeCount').textContent = data.likeCount;
+                    likeBtn.className = 'btn ' + (data.isLiked ? 'btn-danger' : 'btn-outline-danger');
+                    likeBtn.querySelector('i').className = 'bi ' + (data.isLiked ? 'bi-heart-fill' : 'bi-heart');
+                })
+                .catch(function (err) { flash(null, err.message); });
+        });
+    }
+
+    function updateCommentCount(delta) {
+        var el = document.getElementById('commentCount');
+        if (el) el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta);
+    }
+
+    // ── Add comment ─────────────────────────────────────────
+    var addBtn = document.getElementById('addCommentBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', function () {
+            var textarea = document.getElementById('newCommentText');
+            var errorEl = document.getElementById('commentError');
+            var content = textarea.value.trim();
+            errorEl.style.display = 'none';
+            if (!content) return;
+
+            var fd = new FormData();
+            fd.append('content', content);
+            post('/api/articles/' + addBtn.getAttribute('data-article-id') + '/comments', fd)
+                .then(apiJson)
+                .then(function (c) {
+                    var noComments = document.getElementById('noComments');
+                    if (noComments) noComments.remove();
+
+                    var div = document.createElement('div');
+                    div.className = 'border rounded p-3 mb-2';
+                    div.setAttribute('data-comment-id', c.id);
+                    div.innerHTML =
+                        '<div class="d-flex justify-content-between align-items-start">' +
+                            '<div><strong></strong><small class="text-muted ms-2"></small></div>' +
+                            '<div class="text-nowrap">' +
+                                '<button type="button" class="btn btn-sm btn-outline-secondary js-edit-comment">تعديل</button> ' +
+                                '<button type="button" class="btn btn-sm btn-outline-danger js-delete-comment">حذف</button>' +
+                            '</div>' +
+                        '</div><p class="mb-0 mt-2 comment-body"></p>';
+                    // textContent (not innerHTML) so comment text can never inject markup
+                    div.querySelector('strong').textContent = c.authorName;
+                    div.querySelector('small').textContent = c.createdAt;
+                    div.querySelector('.comment-body').textContent = c.content;
+
+                    document.getElementById('commentsList').prepend(div);
+                    textarea.value = '';
+                    updateCommentCount(1);
+                })
+                .catch(function (err) { flash(errorEl, err.message); });
+        });
+    }
+
+    // ── Edit / delete (delegated, so dynamically added comments work too) ──
+    document.getElementById('commentsList').addEventListener('click', function (e) {
+        var wrapper = e.target.closest('[data-comment-id]');
+        if (!wrapper) return;
+        var commentId = wrapper.getAttribute('data-comment-id');
+
+        if (e.target.classList.contains('js-delete-comment')) {
+            post('/api/comments/' + commentId + '/delete', null)
+                .then(apiJson)
+                .then(function () {
+                    wrapper.remove();
+                    updateCommentCount(-1);
+                })
+                .catch(function (err) { flash(null, err.message); });
+        }
+
+        if (e.target.classList.contains('js-edit-comment')) {
+            var body = wrapper.querySelector('.comment-body');
+            if (wrapper.querySelector('.js-edit-box')) return; // already editing
+
+            var original = body.textContent;
+            var box = document.createElement('div');
+            box.className = 'js-edit-box mt-2';
+            box.innerHTML = '<textarea class="form-control mb-2" rows="3"></textarea>' +
+                '<button type="button" class="btn btn-sm btn-success js-save-edit">حفظ</button> ' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary js-cancel-edit">إلغاء</button>';
+            box.querySelector('textarea').value = original;
+            body.style.display = 'none';
+            body.after(box);
+
+            box.querySelector('.js-cancel-edit').addEventListener('click', function () {
+                box.remove();
+                body.style.display = '';
+            });
+
+            box.querySelector('.js-save-edit').addEventListener('click', function () {
+                var newContent = box.querySelector('textarea').value.trim();
+                if (!newContent) return;
+                var fd = new FormData();
+                fd.append('content', newContent);
+                post('/api/comments/' + commentId + '/update', fd)
+                    .then(apiJson)
+                    .then(function (data) {
+                        body.textContent = data.content;
+                        box.remove();
+                        body.style.display = '';
+                    })
+                    // Keep the editor open on failure so the typed text isn't lost.
+                    .catch(function (err) { flash(null, err.message); });
+            });
+        }
+    });
+})();
+</script>
+}
+}

@@ -1,0 +1,105 @@
+@model IEnumerable<HalalStocks.Models.StockFinancialReview>
+@{
+    Layout = "_AdminLayout";
+    var stock = (HalalStocks.Models.Stock)ViewBag.Stock;
+    ViewData["Title"] = $"المراجعات المالية - {stock.NameAr}";
+}
+<div class="d-flex align-items-center mb-2 gap-3">
+    <a href="/admin/stocks" class="btn btn-outline-secondary btn-sm">← الأسهم</a>
+    <div>
+        <h2 class="mb-0">المراجعات المالية</h2>
+        <small class="text-muted">@stock.NameAr (@stock.TickerSymbol)</small>
+    </div>
+    <a href="/admin/stocks/@stock.Id/reviews/create" class="btn btn-success ms-auto">
+        <i class="bi bi-plus-lg ms-1"></i>إضافة مراجعة جديدة
+    </a>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>تاريخ المراجعة</th>
+                    <th>نوع القوائم</th>
+                    <th>السنة</th>
+                    <th>الدخل المحظور</th>
+                    <th>الاستثمارات غير الشرعية</th>
+                    <th>الالتزامات غير الشرعية</th>
+                    <th>الأصول السائلة</th>
+                    <th>موقف السهم</th>
+                    <th>درجة النقاء</th>
+                    <th>إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Any())
+                {
+                    <tr><td colspan="9" class="text-center text-muted py-4">لا توجد مراجعات بعد</td></tr>
+                }
+                @foreach (var r in Model)
+                {
+                    <tr>
+                        <td>@r.ReviewDate.ToString("dd/MM/yyyy")</td>
+                        <td>@r.StatementType.NameAr</td>
+                        <td>@r.ReviewYear</td>
+                        <td>@(r.ProhibitedIncomeRatio.HasValue ? $"{r.ProhibitedIncomeRatio:0.##}%" : "—")</td>
+                        <td>@(r.NonShariahInvestmentRatio.HasValue ? $"{r.NonShariahInvestmentRatio:0.##}%" : "—")</td>
+                        <td>@(r.NonShariahObligationsRatio.HasValue ? $"{r.NonShariahObligationsRatio:0.##}%" : "—")</td>
+                        <td>@(r.LiquidAssetsRatio.HasValue ? $"{r.LiquidAssetsRatio:0.##}%" : "—")</td>
+                        <td>
+                            @switch (r.ShariahStatus)
+                            {
+                                case HalalStocks.Models.ShariahStatus.Halal:
+                                    <span class="badge bg-success">متوافق مع الشريعة</span>
+                                    break;
+                                case HalalStocks.Models.ShariahStatus.MustPurify:
+                                    <span class="badge bg-warning text-dark">غير متوافق مع الشريعة</span>
+                                    break;
+                                case HalalStocks.Models.ShariahStatus.StatusBlocked:
+                                    <span class="badge bg-danger">تم حجب إعلان الموقف الشرعي للسهم</span>
+                                    break;
+                            }
+                        </td>
+                        <td>
+                            @if (r.PurityGrades != HalalStocks.Models.PurityGrade.None)
+                            {
+                                var adminPurityLabels = new Dictionary<HalalStocks.Models.PurityGrade, (string Label, string Css)>
+                                {
+                                    [HalalStocks.Models.PurityGrade.Pure]                       = ("نقي",                          "bg-success"),
+                                    [HalalStocks.Models.PurityGrade.SemiPure]                   = ("شبه نقي",                      "bg-success"),
+                                    [HalalStocks.Models.PurityGrade.ShariaMixedA]               = ("شرعي مختلط A",                 "bg-warning text-dark"),
+                                    [HalalStocks.Models.PurityGrade.ShariaMixedB]               = ("شرعي مختلط B",                 "bg-warning text-dark"),
+                                    [HalalStocks.Models.PurityGrade.ShariaMixedC]               = ("شرعي مختلط C",                 "bg-warning text-dark"),
+                                    [HalalStocks.Models.PurityGrade.NonShariahProhibitedIncome] = ("غير شرعي دخل محظور",           "bg-danger"),
+                                    [HalalStocks.Models.PurityGrade.NonShariahDebts]            = ("غير شرعي قروض",                "bg-danger"),
+                                    [HalalStocks.Models.PurityGrade.NonShariahRibaInvestments]  = ("غير شرعي استثمارات ربوية",    "bg-danger"),
+                                    [HalalStocks.Models.PurityGrade.NonShariahActivity]         = ("غير شرعي نشاط",                "bg-danger")
+                                };
+                                foreach (var (grade, (label, css)) in adminPurityLabels)
+                                {
+                                    if (r.PurityGrades.HasFlag(grade))
+                                    {
+                                        <span class="badge @css me-1">@label</span>
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td>
+                            <a href="/admin/stocks/@stock.Id/reviews/edit/@r.Id" class="btn btn-sm btn-outline-primary">تعديل</a>
+                            <form method="post" action="/admin/stocks/@stock.Id/reviews/delete/@r.Id" class="d-inline"
+                                  onsubmit="return confirm('هل أنت متأكد من حذف هذه المراجعة؟')">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

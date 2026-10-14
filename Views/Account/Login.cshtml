@@ -1,0 +1,61 @@
+@model HalalStocks.ViewModels.LoginViewModel
+@{
+    ViewData["Title"] = "تسجيل الدخول";
+    ViewData["NoIndex"] = true;
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-success text-white text-center py-3">
+                <h4 class="mb-0 fw-bold">تسجيل الدخول</h4>
+            </div>
+            <div class="card-body p-4">
+
+                @* returnUrl rides in the action's query string: the action's simple-type
+                   returnUrl parameter binds from the query but not from a posted form field. *@
+                <form asp-action="Login" asp-controller="Account" asp-route-returnUrl="@ViewBag.ReturnUrl" method="post">
+                    @Html.AntiForgeryToken()
+
+                    @if (!ViewData.ModelState.IsValid && ViewData.ModelState.ErrorCount > 0)
+                    {
+                        <div class="alert alert-danger py-2">
+                            @foreach (var entry in ViewData.ModelState.Values)
+                                @foreach (var err in entry.Errors)
+                                {
+                                    <div>@err.ErrorMessage</div>
+                                }
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label asp-for="UserName" class="form-label fw-semibold"></label>
+                        <input asp-for="UserName" class="form-control" autocomplete="username">
+                        <span asp-validation-for="UserName" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Password" class="form-label fw-semibold"></label>
+                        <input asp-for="Password" class="form-control" autocomplete="current-password">
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input asp-for="RememberMe" class="form-check-input" id="rememberMe">
+                        <label asp-for="RememberMe" class="form-check-label" for="rememberMe"></label>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg fw-bold">دخول</button>
+                    </div>
+
+                    <div class="mt-3 text-center">
+                        <span class="text-muted">ليس لديك حساب؟</span>
+                        <a href="/account/register" class="text-success fw-semibold">سجل الآن</a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>

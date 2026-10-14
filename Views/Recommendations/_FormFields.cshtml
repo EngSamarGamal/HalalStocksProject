@@ -1,0 +1,78 @@
+@model HalalStocks.ViewModels.StockRecommendationFormViewModel
+@using HalalStocks.Models
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label">الكود / السهم <span class="text-danger">*</span></label>
+        <select id="stockSelect" asp-for="StockId" class="form-select" required>
+            <option value="">-- اختر السهم --</option>
+        </select>
+        <span asp-validation-for="StockId" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="PurityGradeLabel" class="form-label"></label>
+        <input asp-for="PurityGradeLabel" class="form-control" required />
+        <span asp-validation-for="PurityGradeLabel" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="GeneralTrend" class="form-label"></label>
+        @if (Model.IsPrivate)
+        {
+            <input asp-for="GeneralTrend" class="form-control" />
+        }
+        else
+        {
+            <input asp-for="GeneralTrend" class="form-control" required
+                   data-val="true" data-val-required="يرجى إدخال الاتجاه العام" />
+        }
+        <span asp-validation-for="GeneralTrend" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="RecommendationTypeId" class="form-label"></label>
+        <select asp-for="RecommendationTypeId" class="form-select">
+            <option value="">-- اختر نوع التوصية --</option>
+            @foreach (var type in Model.RecommendationTypes)
+            {
+                <option value="@type.Id">@type.NameAr</option>
+            }
+        </select>
+        <span asp-validation-for="RecommendationTypeId" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="ClosingPrice" class="form-label"></label>
+        <input asp-for="ClosingPrice" class="form-control" type="number" step="0.01" />
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Support1" class="form-label"></label>
+        <input asp-for="Support1" class="form-control" type="number" step="0.01" />
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Support2" class="form-label"></label>
+        <input asp-for="Support2" class="form-control" type="number" step="0.01" />
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Resistance1" class="form-label"></label>
+        <input asp-for="Resistance1" class="form-control" type="number" step="0.01" />
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Resistance2" class="form-label"></label>
+        <input asp-for="Resistance2" class="form-control" type="number" step="0.01" />
+    </div>
+    <div class="col-md-4">
+        <label asp-for="StopLoss" class="form-label"></label>
+        <input asp-for="StopLoss" class="form-control" type="number" step="0.01" />
+    </div>
+    @if (!Model.IsPrivate)
+    {
+        <div class="col-md-4">
+            <label asp-for="YtdChangePercent" class="form-label"></label>
+            <input asp-for="YtdChangePercent" class="form-control" type="number" step="0.01" />
+        </div>
+    }
+    <div class="col-12">
+        <label asp-for="Notes" class="form-label"></label>
+        <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+    </div>
+</div>

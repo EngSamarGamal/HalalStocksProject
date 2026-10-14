@@ -1,0 +1,66 @@
+@model List<HalalStocks.Models.PortfolioInfoSection>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "أقسام المحفظة";
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>أقسام المحفظة</h2>
+    <a href="/admin/portfolio-sections/create" class="btn btn-success">+ إضافة قسم</a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">لا توجد أقسام بعد.</div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>العنوان</th>
+                        <th>الترتيب</th>
+                        <th>الحالة</th>
+                        <th>الترتيب</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var sec in Model)
+                    {
+                        <tr>
+                            <td>@sec.Id</td>
+                            <td>@sec.Title</td>
+                            <td>@sec.DisplayOrder</td>
+                            <td>
+                                <span class="badge @(sec.IsActive ? "bg-success" : "bg-secondary")">
+                                    @(sec.IsActive ? "نشط" : "مخفي")
+                                </span>
+                            </td>
+                            <td>
+                                <form method="post" action="/admin/portfolio-sections/move-up/@sec.Id" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-sm btn-outline-secondary" title="أعلى">▲</button>
+                                </form>
+                                <form method="post" action="/admin/portfolio-sections/move-down/@sec.Id" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-sm btn-outline-secondary" title="أسفل">▼</button>
+                                </form>
+                            </td>
+                            <td>
+                                <a href="/admin/portfolio-sections/edit/@sec.Id" class="btn btn-sm btn-warning">تعديل</a>
+                                <form method="post" action="/admin/portfolio-sections/delete/@sec.Id" class="d-inline"
+                                      onsubmit="return confirm('هل أنت متأكد من الحذف؟')">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-sm btn-danger">حذف</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

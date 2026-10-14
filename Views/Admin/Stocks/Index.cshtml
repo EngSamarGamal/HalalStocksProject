@@ -1,0 +1,130 @@
+@model IEnumerable<HalalStocks.Models.Stock>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إدارة الأسهم";
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>الأسهم</h2>
+    <a href="/admin/stocks/create" class="btn btn-success">+ إضافة سهم</a>
+</div>
+<form method="get" class="row g-2 mb-4">
+    <div class="col-md-4"><input type="text" name="search" value="@ViewBag.Search" class="form-control" placeholder="بحث..."></div>
+    <div class="col-md-3">
+        <select name="categoryId" class="form-select">
+            <option value="">كل الفئات</option>
+            @foreach (var cat in (IEnumerable<HalalStocks.Models.StockCategory>)ViewBag.Categories)
+            {
+                if (ViewBag.CategoryId != null && (int)ViewBag.CategoryId == cat.Id)
+                {
+                    <option value="@cat.Id" selected>@cat.NameAr</option>
+                }
+                else
+                {
+                    <option value="@cat.Id">@cat.NameAr</option>
+                }
+            }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select name="status" class="form-select">
+            <option value="">كل الأحكام</option>
+            <option value="Halal">متوافق مع الشريعة</option>
+            <option value="MustPurify">غير متوافق مع الشريعة</option>
+            <option value="AwaitingFinancialStatements">في انتظار ظهور القوائم المالية المعتمدة</option>
+            <option value="StatusBlocked">تم حجب إعلان الموقف الشرعي للسهم</option>
+        </select>
+    </div>
+    <div class="col-md-2"><button type="submit" class="btn btn-outline-success w-100">بحث</button></div>
+</form>
+<div class="table-responsive">
+<table class="table table-hover table-bordered">
+    <thead class="table-success">
+        <tr><th>الرمز</th><th>الاسم</th><th>الفئة</th><th>الحكم</th><th class="text-nowrap">إجمالي أسهم الشركة</th><th class="text-nowrap">إجمالي أصول الشركة</th><th>نشط</th><th>إجراءات</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var s in Model)
+        {
+            <tr>
+                <td>@s.TickerSymbol</td>
+                <td>@s.NameAr</td>
+                <td>@s.Category.NameAr</td>
+                <td>
+                    @switch (s.ShariahStatus)
+                    {
+                        case HalalStocks.Models.ShariahStatus.Halal:
+                            <span class="badge bg-success">متوافق مع الشريعة</span>
+                            break;
+                        case HalalStocks.Models.ShariahStatus.MustPurify:
+                            <span class="badge bg-danger text-dark">غير متوافق مع الشريعة</span>
+                            break;
+                        case HalalStocks.Models.ShariahStatus.NotReviewed:
+                            <span class="badge bg-danger">لم يتم مراجعته</span>
+                            break;
+                        case HalalStocks.Models.ShariahStatus.AwaitingFinancialStatements:
+                            <span class="badge bg-info text-dark">في انتظار القوائم المالية</span>
+                            break;
+                        case HalalStocks.Models.ShariahStatus.StatusBlocked:
+                            <span class="badge bg-danger">تم حجب إعلان الموقف الشرعي</span>
+                            break;
+                    }
+                </td>
+                <td class="text-end text-nowrap" dir="ltr">
+                    @if (s.TotalCompanyShares.HasValue)
+                    {
+                        @s.TotalCompanyShares.Value.ToString("N0")
+                    }
+                    else
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
+                <td class="text-end text-nowrap" dir="ltr">
+                    @if (s.TotalCompanyAssets.HasValue)
+                    {
+                        @s.TotalCompanyAssets.Value.ToString("N0")
+                    }
+                    else
+                    {
+                        <span class="text-muted">—</span>
+                    }
+                </td>
+                <td class="text-center">
+                    @if (s.IsActive)
+                    {
+                        <span class="text-success fw-bold">✓</span>
+                    }
+                    else
+                    {
+                        <span class="text-danger fw-bold">✗</span>
+                    }
+                </td>
+                <td>
+                    <div class="mb-1">
+                        <a href="/admin/stocks/@s.Id/reviews" class="btn btn-sm btn-outline-info">المراجعات المالية</a>
+                    </div>
+                    <div>
+                        <a href="/admin/stocks/edit/@s.Id" class="btn btn-sm btn-outline-primary">تعديل</a>
+                        <form method="post" action="/admin/stocks/delete/@s.Id" class="d-inline" onsubmit="return confirm('هل أنت متأكد؟')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+</div>
+@if ((int)ViewBag.TotalPages > 1)
+{
+    <nav>
+        <ul class="pagination justify-content-center">
+            @for (int i = 1; i <= (int)ViewBag.TotalPages; i++)
+            {
+                <li class="page-item @(i == (int)ViewBag.CurrentPage ? "active" : "")">
+                    <a class="page-link" href="?search=@ViewBag.Search&categoryId=@ViewBag.CategoryId&status=@ViewBag.Status&page=@i">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

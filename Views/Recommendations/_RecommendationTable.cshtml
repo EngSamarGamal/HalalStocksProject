@@ -1,0 +1,152 @@
+@model HalalStocks.ViewModels.RecommendationTableViewModel
+@using HalalStocks.Models
+@{
+    var sectionId = "recSection-" + Model.SectionKey;
+    var tableId = "recommendationsTable-" + Model.SectionKey;
+}
+
+<div id="@sectionId">
+    <div class="mb-3">
+        <div class="d-flex flex-wrap gap-2">
+            @foreach (var label in Model.PurityGradeLabels)
+            {
+                var checkboxId = "purity-" + Model.SectionKey + "-" + label.Replace(" ", "-");
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input purity-filter-checkbox" type="checkbox" value="@label" id="@checkboxId">
+                    <label class="form-check-label" for="@checkboxId">@label</label>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered mb-0 align-middle" id="@tableId">
+                <thead class="table-dark">
+                    <tr>
+                        <th>التاريخ والوقت</th>
+                        <th>الكود</th>
+                        <th>السهم</th>
+                        <th>درجة النقاء</th>
+                        <th>الاتجاه العام</th>
+                        <th>الإغلاق</th>
+                        <th>دعم 1</th>
+                        <th>دعم 2</th>
+                        <th>مقاومة 1</th>
+                        <th>مقاومة 2</th>
+                        <th>وقف الخسارة</th>
+                        @if (Model.SectionKey == "general")
+                        {
+                            <th>التغير السنوي</th>
+                        }
+                        <th>التوصية</th>
+                        <th>ملاحظات</th>
+                        @if (Model.SectionKey == "general")
+                        {
+                            <th>الحالة</th>
+                        }
+                        @if (Model.CanManage && Model.SectionKey == "general")
+                        {
+                            <th>الظهور</th>
+                        }
+                        @if (Model.CanManage)
+                        {
+                            <th>إجراءات</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Recommendations)
+                    {
+                        var rowClass = r.RecommendationType?.IsExpiredMarker == true ? "recommendation-expired" : "";
+                        <tr class="@rowClass" data-purity-label="@r.PurityGradeLabel">
+                            <td>
+                                @{
+                                    var dateTime = r.UpdatedAt > r.CreatedAt ? r.UpdatedAt : r.CreatedAt;
+                                }
+                                @dateTime.ToLocalTime().ToString("yyyy/MM/dd HH:mm")
+                            </td>
+                            <td>@r.Stock.TickerSymbol</td>
+                            <td>@r.Stock.NameAr</td>
+                            <td>@r.PurityGradeLabel</td>
+                            <td>@(string.IsNullOrWhiteSpace(r.GeneralTrend) ? "غير محدد" : r.GeneralTrend)</td>
+                            <td>@r.ClosingPrice.ToString("N2")</td>
+                            <td>@r.Support1.ToString("N2")</td>
+                            <td>@r.Support2.ToString("N2")</td>
+                            <td>@r.Resistance1.ToString("N2")</td>
+                            <td>@r.Resistance2.ToString("N2")</td>
+                            <td class="value-stoploss">@r.StopLoss.ToString("N2")</td>
+                            @if (Model.SectionKey == "general")
+                            {
+                                <td class="@(r.YtdChangePercent < 0 ? "value-negative" : (r.YtdChangePercent > 0 ? "value-positive" : ""))">@r.YtdChangePercent.ToString("N2")%</td>
+                            }
+                            <td>@(r.RecommendationType?.NameAr ?? "—")</td>
+                            <td>@(r.Notes ?? "—")</td>
+                            @if (Model.SectionKey == "general")
+                            {
+                                var isExpired = r.RecommendationType?.IsExpiredMarker == true;
+                                <td>
+                                    @if (isExpired)
+                                    {
+                                        <span class="badge bg-danger">منتهية</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">سارية</span>
+                                    }
+                                </td>
+                            }
+                            @if (Model.CanManage && Model.SectionKey == "general")
+                            {
+                                var isHidden = (r as StockRecommendation)?.IsHidden ?? false;
+                                <td>
+                                    @if (isHidden)
+                                    {
+                                        <span class="badge bg-secondary">مخفي</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-primary">ظاهر</span>
+                                    }
+                                </td>
+                            }
+                            @if (Model.CanManage)
+                            {
+                                <td class="text-nowrap">
+                                    <a href="@(Model.EditUrlPrefix)/@r.Id/edit" class="btn btn-sm btn-outline-primary">تعديل</a>
+                                    <form method="post" action="@(Model.DeleteUrlPrefix)/@r.Id/delete" class="d-inline"
+                                          onsubmit="return confirm('هل أنت متأكد من حذف هذه التوصية؟');">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
+                                    </form>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var section = document.getElementById('@sectionId');
+        if (!section) return;
+        var checkboxes = section.querySelectorAll('.purity-filter-checkbox');
+        var rows = section.querySelectorAll('#@tableId tbody tr');
+
+        function applyPurityFilter() {
+            var selected = Array.from(checkboxes).filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+            rows.forEach(function (row) {
+                var purity = row.getAttribute('data-purity-label') || '';
+                var match = selected.length === 0 || selected.indexOf(purity) !== -1;
+                row.style.display = match ? '' : 'none';
+            });
+        }
+
+        checkboxes.forEach(function (cb) {
+            cb.addEventListener('change', applyPurityFilter);
+        });
+    });
+</script>

@@ -1,0 +1,31 @@
+@model HalalStocks.Models.FinancialStatementType
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة نوع قوائم مالية";
+}
+<div class="d-flex align-items-center mb-4 gap-3">
+    <a href="/admin/financial-statement-types" class="btn btn-outline-secondary btn-sm">← رجوع</a>
+    <h2 class="mb-0">إضافة نوع قوائم مالية</h2>
+</div>
+
+<div class="card" style="max-width:560px">
+    <div class="card-body">
+        <form method="post">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label fw-semibold">الاسم بالعربية <span class="text-danger">*</span></label>
+                <input asp-for="NameAr" class="form-control" placeholder="مثال: ربع سنوي - الربع الأول (Q1)" required />
+                <span asp-validation-for="NameAr" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">الاسم بالإنجليزية</label>
+                <input asp-for="NameEn" class="form-control" placeholder="e.g. Q1 Quarterly" />
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-semibold">ترتيب العرض</label>
+                <input asp-for="DisplayOrder" type="number" class="form-control" min="0" />
+            </div>
+            <button type="submit" class="btn btn-success px-4">حفظ</button>
+        </form>
+    </div>
+</div>

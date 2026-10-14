@@ -1,0 +1,95 @@
+@model IEnumerable<HalalStocks.Models.Article>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إدارة المقالات";
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>المقالات</h2>
+    <a href="/admin/articles/create" class="btn btn-warning">+ إضافة مقال</a>
+</div>
+<table class="table table-hover table-bordered">
+    <thead class="table-warning">
+        <tr><th>العنوان</th><th>التصنيف</th><th>الكاتب</th><th>الحالة</th><th>التاريخ</th><th>إجراءات</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var a in Model)
+        {
+            <tr>
+                <td>@a.TitleAr</td>
+                <td>@a.ArticleCategory.NameAr</td>
+                <td>@a.Author.FullName</td>
+                <td>
+                    @if (a.IsPublished)
+                    {
+                        <span class="badge bg-success">منشور</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">مسودة</span>
+                    }
+                    @if (a.Type != ArticleType.Standard)
+                    {
+                        <span class="badge bg-info">@ArticleTypeHelper.Label(a.Type)</span>
+                    }
+                </td>
+                <td>@a.CreatedAt.ToString("dd/MM/yyyy")</td>
+                <td>
+                    <div>
+                        <a href="/admin/articles/edit/@a.Id" class="btn btn-sm btn-outline-primary">تعديل</a>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                                data-bs-target="#confirmDeleteModal" data-action="/admin/articles/delete/@a.Id" data-name="@a.TitleAr">
+                            حذف
+                        </button>
+                    </div>
+
+                    <form method="post" action="/admin/articles/toggle-publish/@a.Id" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-warning mt-1">@(a.IsPublished ? "إلغاء النشر" : "نشر")</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+@if ((int)ViewBag.TotalPages > 1)
+{
+    <nav>
+        <ul class="pagination justify-content-center">
+            @for (int i = 1; i <= (int)ViewBag.TotalPages; i++)
+            {
+                <li class="page-item @(i == (int)ViewBag.CurrentPage ? "active" : "")">
+                    <a class="page-link" href="?page=@i">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" id="confirmDeleteForm">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">تأكيد الحذف</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">هل أنت متأكد من حذف «<span id="deleteItemName"></span>»؟</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-danger">حذف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('confirmDeleteModal').addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        document.getElementById('confirmDeleteForm').action = btn.getAttribute('data-action');
+        document.getElementById('deleteItemName').textContent = btn.getAttribute('data-name');
+    });
+</script>
+}

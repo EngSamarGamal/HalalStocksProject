@@ -1,0 +1,59 @@
+@model IEnumerable<HalalStocks.Models.CalculationSession>
+@{ ViewData["Title"] = "سجل الحسابات"; }
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">سجل الحسابات</h2>
+    <a href="/calculator" class="btn btn-success btn-sm">+ حساب جديد</a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="text-center text-muted py-5">
+        <p class="fs-5">لا يوجد حسابات محفوظة بعد.</p>
+        <a href="/calculator" class="btn btn-success">ابدأ الحساب الآن</a>
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var s in Model)
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100 @(s.IsPaid ? "border-success" : "")">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="fw-bold mb-0">@(s.Title ?? "حساب بدون عنوان")</h6>
+                            @if (s.IsPaid)
+                            {
+                                <span class="badge bg-success">تم السداد ✓</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">لم يُسدَّد</span>
+                            }
+                        </div>
+                        <div class="text-muted small mb-3">@s.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</div>
+                        <div class="row text-center g-2 mb-3">
+                            <div class="col-6">
+                                <div class="text-muted" style="font-size:.75rem">إجمالي الأرباح</div>
+                                <div class="fw-bold">@s.TotalProfit.ToString("N2") <small class="text-muted">ج.م</small></div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted" style="font-size:.75rem">مبلغ التطهير</div>
+                                <div class="fw-bold text-success">@s.TotalPurification.ToString("N2") <small class="text-muted">ج.م</small></div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="/calculations/@s.Id" class="btn btn-outline-secondary btn-sm flex-grow-1">عرض</a>
+                            <a href="/calculations/@s.Id/edit" class="btn btn-outline-warning btn-sm">تعديل</a>
+                            <form method="post" action="/calculations/@s.Id/delete" onsubmit="return confirm('حذف هذا الحساب؟')">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-outline-danger btn-sm">🗑</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

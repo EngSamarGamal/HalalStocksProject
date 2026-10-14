@@ -1,0 +1,53 @@
+@model HalalStocks.Models.SiteSettings
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إعدادات الموقع";
+}
+
+<h2 class="mb-4">إعدادات الموقع</h2>
+
+<div class="card" style="max-width:640px">
+    <div class="card-header fw-bold bg-dark text-white">
+        <i class="bi bi-gear ms-2"></i>روابط التواصل الاجتماعي
+    </div>
+    <div class="card-body">
+        <form method="post">
+            @Html.AntiForgeryToken()
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">رقم واتس آب</label>
+                <input asp-for="WhatsAppNumber" class="form-control" placeholder="مثال: 201012345678" dir="ltr">
+                <small class="text-muted">مع كود الدولة بدون + — مثال: 201012345678</small>
+                <span asp-validation-for="WhatsAppNumber" class="text-danger small"></span>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">رسالة واتس آب الافتراضية</label>
+                <input asp-for="WhatsAppMessage" class="form-control" placeholder="مرحباً، أريد الاستفسار عن...">
+                <small class="text-muted">اختياري — تظهر كرسالة مسبقة عند فتح المحادثة</small>
+            </div>
+
+            <hr class="my-3">
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">رابط صفحة فيسبوك</label>
+                <input asp-for="FacebookUrl" type="url" class="form-control" placeholder="https://facebook.com/..." dir="ltr">
+                <span asp-validation-for="FacebookUrl" class="text-danger small"></span>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">رابط تيليجرام</label>
+                <input asp-for="TelegramUrl" type="url" class="form-control" placeholder="https://t.me/..." dir="ltr">
+                <span asp-validation-for="TelegramUrl" class="text-danger small"></span>
+            </div>
+
+            <button type="submit" class="btn btn-success px-4">حفظ الإعدادات</button>
+        </form>
+    </div>
+    @if (Model.UpdatedAt != default)
+    {
+        <div class="card-footer text-muted small">
+            آخر تحديث: @Model.UpdatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")
+        </div>
+    }
+</div>

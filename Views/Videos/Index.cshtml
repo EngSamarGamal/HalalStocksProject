@@ -1,0 +1,78 @@
+@model VideoListViewModel
+@{
+    ViewData["Title"] = "الفيديوهات";
+}
+<h2 class="mb-4">الفيديوهات</h2>
+
+<form method="get" action="/videos" class="row g-2 mb-4">
+    <div class="col-12 col-md-6">
+        <input type="search" name="search" value="@Model.Search" class="form-control" placeholder="ابحث بالعنوان أو الوصف..." autocomplete="off">
+    </div>
+    <div class="col-8 col-md-4">
+        <select name="category" asp-items="Model.Categories" class="form-select">
+            <option value="">كل الفئات</option>
+        </select>
+    </div>
+    <div class="col-4 col-md-2">
+        <button type="submit" class="btn btn-success w-100">بحث</button>
+    </div>
+</form>
+
+@if (Model.Videos.Any())
+{
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+        @foreach (var video in Model.Videos)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <partial name="~/Views/Shared/_VideoCard.cshtml" model="video" />
+                    <div class="card-body">
+                        <h6 class="card-title mb-1">@video.Title</h6>
+                        <small class="text-muted">@video.Category.Name</small>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="text-center text-muted py-5">
+        <p>لا توجد فيديوهات مطابقة.</p>
+    </div>
+}
+
+@if (Model.TotalPages > 1)
+{
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            @for (int i = 1; i <= Model.TotalPages; i++)
+            {
+                <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                    <a class="page-link" href="?page=@i&search=@Model.Search&category=@Model.CategoryId">@i</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
+@section Scripts {
+<script>
+    window.HalalStocks = window.HalalStocks || {};
+    window.HalalStocks.playVideoFacade = function (el) {
+        var videoId = el.getAttribute('data-video-id');
+        var iframe = document.createElement('iframe');
+        iframe.setAttribute('loading', 'lazy');
+        iframe.setAttribute('src', 'https://www.youtube.com/embed/' + videoId + '?autoplay=1');
+        iframe.setAttribute('allow', 'accelerometer; autoplay; encrypted-media; picture-in-picture');
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.className = 'w-100 h-100';
+        iframe.style.border = '0';
+        iframe.style.position = 'absolute';
+        iframe.style.inset = '0';
+        el.innerHTML = '';
+        el.appendChild(iframe);
+        el.removeAttribute('onclick');
+    };
+</script>
+}

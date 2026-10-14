@@ -1,0 +1,168 @@
+@model HalalStocks.ViewModels.Admin.AdminEditUserViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "تعديل المستخدم";
+    var passwordError   = TempData["PasswordError"]?.ToString();
+    var passwordSuccess = TempData["PasswordSuccess"]?.ToString();
+    var returnTab = Model.IsPublicUser ? "public" : "admin";
+}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="/admin/users?tab=@returnTab" class="btn btn-outline-secondary btn-sm">→ رجوع</a>
+    <h2 class="mb-0">تعديل المستخدم: @(Model.IsPublicUser ? (Model.FirstName + " " + Model.LastName) : Model.FullName)</h2>
+</div>
+
+<div class="row g-4">
+
+    <!-- ── User Info ─────────────────────────────────────────── -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white fw-bold">البيانات الشخصية</div>
+            <div class="card-body p-4">
+
+                <form asp-action="Edit" asp-controller="Users" asp-route-id="@Model.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Id" />
+                    <input type="hidden" asp-for="IsPublicUser" />
+
+                    @if (!ViewData.ModelState.IsValid && ViewData.ModelState.ErrorCount > 0)
+                    {
+                        <div class="alert alert-danger py-2 mb-3">
+                            @foreach (var entry in ViewData.ModelState.Values)
+                                @foreach (var err in entry.Errors)
+                                { <div>@err.ErrorMessage</div> }
+                        </div>
+                    }
+
+                    @if (Model.IsPublicUser)
+                    {
+                        <!-- Public user: username readonly, first/last name, email, phone, paid flag -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">اسم المستخدم</label>
+                            <input type="text" class="form-control bg-light" value="@Model.UserName" readonly>
+                            <div class="form-text">لا يمكن تغيير اسم المستخدم</div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label asp-for="FirstName" class="form-label fw-semibold"></label>
+                                <input asp-for="FirstName" class="form-control">
+                                <span asp-validation-for="FirstName" class="text-danger small"></span>
+                            </div>
+                            <div class="col-6">
+                                <label asp-for="LastName" class="form-label fw-semibold"></label>
+                                <input asp-for="LastName" class="form-control">
+                                <span asp-validation-for="LastName" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label fw-semibold"></label>
+                            <input asp-for="Email" class="form-control" dir="ltr">
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="PhoneNumber" class="form-label fw-semibold"></label>
+                            <input asp-for="PhoneNumber" class="form-control" dir="ltr">
+                        </div>
+
+
+                    }
+                    else
+                    {
+                        <!-- Admin user: full name, email, role -->
+                        <div class="mb-3">
+                            <label asp-for="FullName" class="form-label fw-semibold"></label>
+                            <input asp-for="FullName" class="form-control">
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label fw-semibold"></label>
+                            <input asp-for="Email" class="form-control" dir="ltr">
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Role" class="form-label fw-semibold">الدور</label>
+                            <select asp-for="Role" class="form-select">
+                                <option value="SuperAdmin">SuperAdmin</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Editor">Editor</option>
+                            </select>
+                        </div>
+                    }
+
+                    <button type="submit" class="btn btn-secondary px-4 fw-bold">حفظ التغييرات</button>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Reset Password ────────────────────────────────────── -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-warning text-dark fw-bold">إعادة تعيين كلمة المرور</div>
+            <div class="card-body p-4">
+
+                @if (passwordSuccess != null)
+                {
+                    <div class="alert alert-success py-2">@passwordSuccess</div>
+                }
+                @if (passwordError != null)
+                {
+                    <div class="alert alert-danger py-2">@passwordError</div>
+                }
+
+                <form method="post" action="/admin/users/reset-password/@Model.Id">
+                    @Html.AntiForgeryToken()
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">كلمة المرور الجديدة</label>
+                        <input type="password" name="newPassword" class="form-control" autocomplete="new-password">
+                        <div class="form-text">8 أحرف على الأقل، حرف كبير وحرف صغير ورقم</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">تأكيد كلمة المرور</label>
+                        <input type="password" name="confirmNewPassword" class="form-control" autocomplete="new-password">
+                    </div>
+
+                    <button type="submit" class="btn btn-warning px-4 fw-bold">إعادة التعيين</button>
+                </form>
+
+            </div>
+        </div>
+
+        <!-- ── Analyst designation ───────────────────────────── -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-info text-white fw-bold">صفة المحلل</div>
+            <div class="card-body p-4">
+                <p class="mb-3">
+                    الحالة الحالية:
+                    @if (Model.IsAnalyst)
+                    {
+                        <span class="badge bg-success">محلل</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">ليس محللاً</span>
+                    }
+                </p>
+                <p class="text-muted small">
+                    منح صفة المحلل يتيح للمستخدم الوصول لملفه كمحلل لإضافة ملخص وصورة شخصية
+                    وكتابة مقالات تحليلية تخضع لموافقة الإدارة قبل النشر.
+                </p>
+                <form method="post" action="/admin/users/toggle-analyst/@Model.Id">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn @(Model.IsAnalyst ? "btn-outline-danger" : "btn-info") px-4 fw-bold">
+                        @(Model.IsAnalyst ? "إزالة صفة المحلل" : "تعيين كمحلل")
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>

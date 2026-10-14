@@ -1,0 +1,304 @@
+@model HalalStocks.ViewModels.PortfolioRequestFormViewModel
+@using HalalStocks.Models
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "فتح محفظة استثمارية";
+    var sections = ViewBag.Sections as List<HalalStocks.Models.PortfolioInfoSection> ?? new();
+    var hasActiveRequest = (bool)(ViewBag.HasActiveRequest ?? false);
+}
+
+<h1 class="mb-4">طلب فتح و ادارة محفظة استثمار اسلامي</h1>
+
+@* — Accordion info sections — *@
+@if (sections.Any())
+{
+    <div class="accordion mb-5" id="portfolioAccordion">
+        @for (int i = 0; i < sections.Count; i++)
+        {
+            var sec = sections[i];
+            var collapseId = $"collapse-{sec.Id}";
+            var headingId  = $"heading-{sec.Id}";
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="@headingId">
+                    <button class="accordion-button fw-bold fs-5 @(i > 0 ? "collapsed" : "")"
+                            type="button" data-bs-toggle="collapse"
+                            data-bs-target="#@collapseId"
+                            aria-expanded="@(i == 0 ? "true" : "false")"
+                            aria-controls="@collapseId">
+                        @sec.Title
+                    </button>
+                </h2>
+                <div id="@collapseId"
+                     class="accordion-collapse collapse @(i == 0 ? "show" : "")"
+                     aria-labelledby="@headingId"
+                     data-bs-parent="#portfolioAccordion">
+                    <div class="accordion-body">
+                        @if (!string.IsNullOrEmpty(sec.Content))
+                        {
+                            @Html.Raw(sec.Content)
+                        }
+                        @if (!string.IsNullOrEmpty(sec.ImagePath))
+                        {
+                            <img src="@sec.ImagePath" alt="@sec.Title"
+                                 class="img-fluid rounded mt-3 d-block mx-auto" style="max-height:400px;">
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@* — Request form section — *@
+<div class="card shadow-sm">
+    <div class="card-header bg-success text-white fw-bold fs-5">
+        طلب فتح حساب إدارة محافظ استثمارية متوافقة مع الشريعة
+    </div>
+    <div class="card-body">
+
+        @if (!User.Identity!.IsAuthenticated)
+        {
+            <div class="alert alert-warning">
+                يجب <a href="/account/login?returnUrl=/portfolio-request" class="fw-bold">تسجيل الدخول</a>
+                لتقديم طلب فتح المحفظة.
+            </div>
+        }
+        else if (hasActiveRequest)
+        {
+            <div class="alert alert-info">
+                لديك طلب قيد المراجعة بالفعل، يمكنك متابعة حالته من
+                <a href="/portfolio-request/my-request" class="fw-bold">هنا</a>.
+            </div>
+        }
+        else
+        {
+            <form method="post" action="/portfolio-request">
+                @Html.AntiForgeryToken()
+
+                @* Phone *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold">رقم هاتف المستثمر *</label>
+                    <input asp-for="PhoneNumber" class="form-control" placeholder="مثال: 01012345678" required>
+                    <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+                </div>
+
+                @* Governorate *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold">المحافظة *</label>
+                    <select asp-for="Governorate" class="form-select" required>
+                        <option value="">— اختر المحافظة —</option>
+                        @foreach (var gov in Governorates())
+                        {
+                            <option value="@gov" selected="@(Model?.Governorate == gov)">@gov</option>
+                        }
+                    </select>
+                    <span asp-validation-for="Governorate" class="text-danger"></span>
+                </div>
+
+                @* Residence *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold">الإقامة الحالية *</label>
+                    <div class="d-flex gap-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="Residence" id="resInside"
+                                   value="@((int)ResidenceType.InsideEgypt)"
+                                   @(Model?.Residence != ResidenceType.OutsideEgypt ? "checked" : "")>
+                            <label class="form-check-label" for="resInside">داخل مصر</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="Residence" id="resOutside"
+                                   value="@((int)ResidenceType.OutsideEgypt)"
+                                   @(Model?.Residence == ResidenceType.OutsideEgypt ? "checked" : "")>
+                            <label class="form-check-label" for="resOutside">خارج مصر</label>
+                        </div>
+                    </div>
+                </div>
+
+                @* Country — shown only if OutsideEgypt *@
+                <div class="mb-3" id="countryRow" style="display:none;">
+                    <label class="form-label fw-bold">الدولة *</label>
+                    <select asp-for="CountryOfResidence" id="countrySelect" class="form-select">
+                        <option value="">— اختر الدولة —</option>
+                        @foreach (var c in Countries())
+                        {
+                            <option value="@c" selected="@(Model?.CountryOfResidence == c)">@c</option>
+                        }
+                    </select>
+                    <span asp-validation-for="CountryOfResidence" class="text-danger"></span>
+                </div>
+
+                @* Investment Capital *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold">رأس المال المطلوب للاستثمار (ج.م) *</label>
+                    <input asp-for="InvestmentCapital" type="number" class="form-control" min="1" placeholder="مثال: 50000" required>
+                    <span asp-validation-for="InvestmentCapital" class="text-danger"></span>
+                </div>
+
+                @* Investment Horizon *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold">ما هو هدفك الاستثماري؟ *</label>
+                    <div class="d-flex flex-wrap gap-4">
+                        @foreach (var h in Enum.GetValues<InvestmentHorizon>())
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="Horizon" id="horizon_@h"
+                                       value="@((int)h)"
+                                       @(Model?.Horizon == h || (Model == null && h == InvestmentHorizon.MediumTerm) ? "checked" : "")>
+                                <label class="form-check-label" for="horizon_@h">@HorizonLabel(h)</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @* Stock Type *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold">درجة شرعية الأسهم المطلوب الاستثمار فيها *</label>
+                    <select asp-for="StockType" class="form-select" required>
+                        <option value="0">نقية فقط</option>
+                        <option value="1">نقية + شبه نقية فقط</option>
+                        <option value="2">نقية + شبه نقية + مختلط A</option>
+                        <option value="3">نقية + شبه نقية + مختلط A و B</option>
+                        <option value="4">جميع الأسهم المتوافقة مع الشريعة</option>
+                    </select>
+                </div>
+
+                @* Preferred Contact *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold">طريقة التواصل *</label>
+                    <div class="d-flex flex-wrap gap-4">
+                        @foreach (var c in Enum.GetValues<ContactMethod>())
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="PreferredContact"
+                                       id="contact_@c" value="@((int)c)"
+                                       @(Model?.PreferredContact == c || (Model == null && c == ContactMethod.WhatsApp) ? "checked" : "")>
+                                <label class="form-check-label" for="contact_@c">@ContactLabel(c)</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @* WhatsApp — shown if WhatsApp selected *@
+                <div class="mb-3" id="whatsappRow">
+                    <label class="form-label fw-bold">رقم واتس آب *</label>
+                    <input asp-for="WhatsAppNumber" class="form-control" placeholder="مثال: 01012345678">
+                    <span asp-validation-for="WhatsAppNumber" class="text-danger"></span>
+                </div>
+
+                @* Email contact — shown if Email selected *@
+                <div class="mb-3" id="emailRow" style="display:none;">
+                    <label class="form-label fw-bold">البريد الإلكتروني *</label>
+                    <input asp-for="ContactEmail" type="email" class="form-control">
+                    <span asp-validation-for="ContactEmail" class="text-danger"></span>
+                </div>
+
+                @* Contract Delivery *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold">طلب إرسال العقد *</label>
+                    <div class="d-flex flex-wrap gap-4">
+                        @foreach (var d in Enum.GetValues<ContractDelivery>())
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="ContractDelivery"
+                                       id="delivery_@d" value="@((int)d)"
+                                       @(Model?.ContractDelivery == d || (Model == null && d == ContractDelivery.ElectronicMail) ? "checked" : "")>
+                                <label class="form-check-label" for="delivery_@d">
+                                    @(d == ContractDelivery.ElectronicMail ? "البريد الإلكتروني" : "البريد المصري")
+                                </label>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-success btn-lg px-5">تقديم طلب فتح الحساب</button>
+                </div>
+            </form>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    // Only run form logic if the form is actually rendered
+    const portfolioForm = document.querySelector('form[action="/portfolio-request"]');
+    if (portfolioForm) {
+        // Country searchable dropdown
+        $('#countrySelect').select2({ placeholder: '— اختر الدولة —', dir: 'rtl', width: '100%' });
+
+        // Show/hide country based on residence
+        function toggleCountry() {
+            const outsideRadio = document.querySelector('input[name="Residence"][value="@((int)ResidenceType.OutsideEgypt)"]');
+            const outside = outsideRadio ? outsideRadio.checked : false;
+            document.getElementById('countryRow').style.display = outside ? '' : 'none';
+            document.getElementById('countrySelect').required = outside;
+        }
+        document.querySelectorAll('input[name="Residence"]').forEach(r => r.addEventListener('change', toggleCountry));
+        toggleCountry();
+
+        // Show/hide WhatsApp / Email based on contact method
+        function toggleContact() {
+            const selected = document.querySelector('input[name="PreferredContact"]:checked')?.value;
+            const whatsapp = '@((int)ContactMethod.WhatsApp)';
+            const email    = '@((int)ContactMethod.Email)';
+            document.getElementById('whatsappRow').style.display = selected == whatsapp ? '' : 'none';
+            document.getElementById('emailRow').style.display    = selected == email    ? '' : 'none';
+            const waInput = document.querySelector('input[name="WhatsAppNumber"]');
+            const emInput = document.querySelector('input[name="ContactEmail"]');
+            if (waInput) waInput.required = selected == whatsapp;
+            if (emInput) emInput.required = selected == email;
+        }
+        document.querySelectorAll('input[name="PreferredContact"]').forEach(r => r.addEventListener('change', toggleContact));
+        toggleContact();
+    }
+
+    // Replace &nbsp; ( ) saved by Quill with regular spaces so Arabic words wrap naturally
+    document.querySelectorAll('.accordion-body').forEach(el => {
+        el.innerHTML = el.innerHTML.replaceAll('&nbsp;', ' ');
+    });
+</script>
+}
+
+@functions {
+    IEnumerable<string> Governorates() => new[]
+    {
+        "القاهرة", "الجيزة", "الإسكندرية", "الدقهلية", "البحر الأحمر", "البحيرة", "الفيوم",
+        "الغربية", "الإسماعيلية", "المنوفية", "المنيا", "قنا", "الوادي الجديد",
+        "شمال سيناء", "جنوب سيناء", "الشرقية", "سوهاج", "القليوبية", "مطروح",
+        "الأقصر", "أسوان", "بورسعيد", "دمياط", "السويس", "كفر الشيخ", "أسيوط"
+    };
+
+    IEnumerable<string> Countries() => new[]
+    {
+        "المملكة العربية السعودية", "الإمارات العربية المتحدة", "الكويت", "قطر", "البحرين", "عُمان",
+        "الأردن", "لبنان", "سوريا", "العراق", "فلسطين", "اليمن", "ليبيا", "تونس",
+        "الجزائر", "المغرب", "موريتانيا", "السودان", "الصومال", "جيبوتي", "جزر القمر",
+        "المملكة المتحدة", "ألمانيا", "فرنسا", "إيطاليا", "إسبانيا", "هولندا", "بلجيكا",
+        "السويد", "النرويج", "الدنمارك", "سويسرا", "النمسا", "البرتغال", "اليونان",
+        "الولايات المتحدة الأمريكية", "كندا", "أستراليا", "نيوزيلندا",
+        "تركيا", "ماليزيا", "إندونيسيا", "باكستان", "بنغلاديش", "الهند",
+        "الصين", "اليابان", "كوريا الجنوبية", "روسيا", "أوكرانيا", "بولندا",
+        "جنوب أفريقيا", "نيجيريا", "غانا", "كينيا", "إثيوبيا", "السنغال",
+        "البرازيل", "الأرجنتين", "المكسيك", "كولومبيا", "شيلي",
+        "دولة أخرى"
+    };
+
+    string HorizonLabel(InvestmentHorizon h) => h switch
+    {
+        InvestmentHorizon.ShortTerm  => "قصير الأجل (مضاربة + متاجرة)",
+        InvestmentHorizon.MediumTerm => "متوسط الأجل",
+        InvestmentHorizon.LongTerm   => "طويل الأجل",
+        _ => h.ToString()
+    };
+
+    string ContactLabel(ContactMethod c) => c switch
+    {
+        ContactMethod.WhatsApp => "واتس آب",
+        ContactMethod.Phone    => "تليفون",
+        ContactMethod.Email    => "البريد الإلكتروني",
+        _ => c.ToString()
+    };
+}

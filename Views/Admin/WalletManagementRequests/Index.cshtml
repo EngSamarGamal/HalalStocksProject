@@ -1,0 +1,165 @@
+@using HalalStocks.Models
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "طلبات إدارة المحافظ";
+    var pending  = (List<WalletManagementRequest>)ViewBag.PendingRequests;
+    var approved = (List<WalletManagementRequest>)ViewBag.ApprovedRequests;
+    var approvedCount = (int)ViewBag.ApprovedCount;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h2 class="mb-0">طلبات إدارة المحافظ</h2>
+</div>
+
+<div class="mb-3" style="max-width:380px">
+    <input type="search" id="managementRequestSearch" class="form-control" placeholder="بحث بالاسم أو البريد أو الهاتف..." autocomplete="off">
+</div>
+
+<ul class="nav nav-tabs mb-4" id="requestTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending-panel"
+                type="button" role="tab" aria-controls="pending-panel" aria-selected="true">
+            طلبات قيد المراجعة
+            @if (pending.Any())
+            {
+                <span class="badge bg-warning text-dark ms-1">@pending.Count</span>
+            }
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved-panel"
+                type="button" role="tab" aria-controls="approved-panel" aria-selected="false">
+            المحافظ المُدارة
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="requestTabsContent">
+    <div class="tab-pane fade show active" id="pending-panel" role="tabpanel" aria-labelledby="pending-tab">
+        @if (!pending.Any())
+        {
+            <div class="alert alert-info">لا توجد طلبات قيد المراجعة.</div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>الاسم</th>
+                                <th>الهاتف</th>
+                                <th>البريد الإلكتروني</th>
+                                <th>تاريخ الطلب</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in pending)
+                            {
+                                <tr>
+                                    <td>@UserDisplayName(r)</td>
+                                    <td>@(r.User?.PhoneNumber ?? "—")</td>
+                                    <td>@(r.User?.Email ?? "—")</td>
+                                    <td>@r.RequestedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</td>
+                                    <td class="text-nowrap">
+                                        <form method="post" action="/admin/wallet-management-requests/@r.Id/approve" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-success">قبول</button>
+                                        </form>
+                                        <form method="post" action="/admin/wallet-management-requests/@r.Id/reject" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-danger">رفض</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="tab-pane fade" id="approved-panel" role="tabpanel" aria-labelledby="approved-tab">
+        <p class="text-muted mb-3">
+            إجمالي المحافظ المُدارة: <strong>@approvedCount</strong>
+        </p>
+        @if (!approved.Any())
+        {
+            <div class="alert alert-info">لا توجد محافظ مُدارة حالياً.</div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>الاسم</th>
+                                <th>الهاتف</th>
+                                <th>البريد الإلكتروني</th>
+                                <th>تاريخ الموافقة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in approved)
+                            {
+                                <tr>
+                                    <td>@UserDisplayName(r)</td>
+                                    <td>@(r.User?.PhoneNumber ?? "—")</td>
+                                    <td>@(r.User?.Email ?? "—")</td>
+                                    <td>@(r.ApprovedAt?.ToLocalTime().ToString("yyyy/MM/dd HH:mm") ?? "—")</td>
+                                    <td class="text-nowrap">
+                                        <a href="/admin/wallet-management/@r.UserId/wallet" class="btn btn-sm btn-success">
+                                            الذهاب للمحفظة
+                                        </a>
+                                        <form method="post" action="/admin/wallet-management-requests/@r.Id/delete" class="d-inline"
+                                              onsubmit="return confirm('هل أنت متأكد من إلغاء صلاحية إدارة محفظة هذا المستخدم؟');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">إلغاء الصلاحية</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div id="noResults" class="text-center text-muted py-4" style="display:none">
+    لا توجد نتائج مطابقة للبحث.
+</div>
+
+<script>
+    document.getElementById('managementRequestSearch').addEventListener('input', function () {
+        var q = this.value.trim().toLowerCase();
+        var activePane = document.querySelector('.tab-pane.active');
+        var rows = activePane ? activePane.querySelectorAll('tbody tr') : [];
+        var shown = 0;
+        rows.forEach(function (row) {
+            var text = row.textContent.toLowerCase();
+            var match = !q || text.indexOf(q) !== -1;
+            row.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+        document.getElementById('noResults').style.display = (q && shown === 0) ? '' : 'none';
+    });
+</script>
+
+@functions {
+    string UserDisplayName(WalletManagementRequest r)
+    {
+        var user = r.User;
+        if (user == null) return "—";
+        if (!string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName))
+            return $"{user.FirstName} {user.LastName}".Trim();
+        if (!string.IsNullOrWhiteSpace(user.FullName))
+            return user.FullName;
+        return user.UserName ?? "—";
+    }
+}

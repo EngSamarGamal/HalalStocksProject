@@ -1,0 +1,152 @@
+@model HalalStocks.Models.PortfolioRequest
+@using HalalStocks.Models
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "تفاصيل الطلب #" + Model.Id;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>تفاصيل الطلب #@Model.Id</h2>
+    <a href="/admin/portfolio-requests" class="btn btn-outline-secondary">رجوع</a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card mb-4">
+            <div class="card-header fw-bold bg-dark text-white">بيانات المستثمر</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">اسم المستخدم</dt>
+                    <dd class="col-sm-8">@(Model.User?.FirstName) @(Model.User?.LastName) (@Model.User?.Email)</dd>
+
+                    <dt class="col-sm-4">رقم الهاتف</dt>
+                    <dd class="col-sm-8">@Model.PhoneNumber</dd>
+
+                    <dt class="col-sm-4">المحافظة</dt>
+                    <dd class="col-sm-8">@Model.Governorate</dd>
+
+                    <dt class="col-sm-4">الإقامة</dt>
+                    <dd class="col-sm-8">
+                        @(Model.Residence == ResidenceType.InsideEgypt ? "داخل مصر" : "خارج مصر")
+                        @if (Model.Residence == ResidenceType.OutsideEgypt && !string.IsNullOrEmpty(Model.CountryOfResidence))
+                        {
+                            <span class="text-muted"> — @Model.CountryOfResidence</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-4">رأس المال</dt>
+                    <dd class="col-sm-8">@Model.InvestmentCapital.ToString("N0") ج.م</dd>
+
+                    <dt class="col-sm-4">الهدف الاستثماري</dt>
+                    <dd class="col-sm-8">@HorizonLabel(Model.Horizon)</dd>
+
+                    <dt class="col-sm-4">درجة شرعية الأسهم</dt>
+                    <dd class="col-sm-8">@StockTypeLabel(Model.StockType)</dd>
+
+                    <dt class="col-sm-4">طريقة التواصل</dt>
+                    <dd class="col-sm-8">
+                        @ContactLabel(Model.PreferredContact)
+                        @if (Model.PreferredContact == ContactMethod.WhatsApp && !string.IsNullOrEmpty(Model.WhatsAppNumber))
+                        { <span class="text-muted"> — @Model.WhatsAppNumber</span> }
+                        @if (Model.PreferredContact == ContactMethod.Email && !string.IsNullOrEmpty(Model.ContactEmail))
+                        { <span class="text-muted"> — @Model.ContactEmail</span> }
+                    </dd>
+
+                    <dt class="col-sm-4">إرسال العقد</dt>
+                    <dd class="col-sm-8">@(Model.ContractDelivery == ContractDelivery.ElectronicMail ? "البريد الإلكتروني" : "البريد المصري")</dd>
+
+                    <dt class="col-sm-4">تاريخ الطلب</dt>
+                    <dd class="col-sm-8">@Model.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header fw-bold bg-dark text-white">تحديث الحالة</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="fw-bold">الحالة الحالية: </span>
+                    @StatusBadge(Model.Status)
+                </div>
+                <form method="post" action="/admin/portfolio-requests/@Model.Id/update-status">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">تغيير الحالة</label>
+                        <select name="status" class="form-select">
+                            @foreach (var s in Enum.GetValues<PortfolioRequestStatus>())
+                            {
+                                if (s == Model.Status)
+                                {
+                                    <option value="@((int)s)" selected>@StatusLabel(s)</option>
+                                }
+                                else
+                                {
+                                    <option value="@((int)s)">@StatusLabel(s)</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">ملاحظات الإدارة</label>
+                        <textarea name="adminNotes" class="form-control" rows="4">@Model.AdminNotes</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100">تحديث</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    string StatusLabel(PortfolioRequestStatus s) => s switch
+    {
+        PortfolioRequestStatus.New          => "جديد",
+        PortfolioRequestStatus.UnderReview  => "قيد المراجعة",
+        PortfolioRequestStatus.Contacted    => "تم التواصل",
+        PortfolioRequestStatus.ActiveClient => "عميل حالي",
+        PortfolioRequestStatus.Rejected     => "مرفوض",
+        _ => s.ToString()
+    };
+
+    Microsoft.AspNetCore.Html.HtmlString StatusBadge(PortfolioRequestStatus s)
+    {
+        var (css, label) = s switch
+        {
+            PortfolioRequestStatus.New          => ("bg-primary",          "جديد"),
+            PortfolioRequestStatus.UnderReview  => ("bg-warning text-dark","قيد المراجعة"),
+            PortfolioRequestStatus.Contacted    => ("bg-orange text-dark", "تم التواصل"),
+            PortfolioRequestStatus.ActiveClient => ("bg-success",          "عميل حالي"),
+            PortfolioRequestStatus.Rejected     => ("bg-danger",           "مرفوض"),
+            _ => ("bg-secondary", s.ToString())
+        };
+        return new Microsoft.AspNetCore.Html.HtmlString($"<span class=\"badge {css}\">{label}</span>");
+    }
+
+    string HorizonLabel(InvestmentHorizon h) => h switch
+    {
+        InvestmentHorizon.ShortTerm  => "قصير الأجل (مضاربة + متاجرة)",
+        InvestmentHorizon.MediumTerm => "متوسط الأجل",
+        InvestmentHorizon.LongTerm   => "طويل الأجل",
+        _ => h.ToString()
+    };
+
+    string StockTypeLabel(StockPurityPreference p) => p switch
+    {
+        StockPurityPreference.PureOnly            => "نقية فقط",
+        StockPurityPreference.PureAndSemiPure     => "نقية + شبه نقية فقط",
+        StockPurityPreference.UpToMixedA          => "نقية + شبه نقية + مختلط A",
+        StockPurityPreference.UpToMixedB          => "نقية + شبه نقية + مختلط A و B",
+        StockPurityPreference.AllShariahCompliant => "جميع الأسهم المتوافقة مع الشريعة",
+        _ => p.ToString()
+    };
+
+    string ContactLabel(ContactMethod c) => c switch
+    {
+        ContactMethod.WhatsApp => "واتس آب",
+        ContactMethod.Phone    => "تليفون",
+        ContactMethod.Email    => "البريد الإلكتروني",
+        _ => c.ToString()
+    };
+}

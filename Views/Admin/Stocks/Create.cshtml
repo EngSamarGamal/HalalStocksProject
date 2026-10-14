@@ -1,0 +1,21 @@
+@model StockFormViewModel
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "إضافة سهم";
+}
+<h2 class="mb-4">إضافة سهم جديد</h2>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="/admin/stocks/create">
+            @Html.AntiForgeryToken()
+            @await Html.PartialAsync("~/Views/Admin/Stocks/_StockForm.cshtml", Model)
+            <div class="mt-3">
+                <button type="submit" class="btn btn-success">حفظ</button>
+                <a href="/admin/stocks" class="btn btn-outline-secondary">إلغاء</a>
+            </div>
+        </form>
+    </div>
+</div>
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}
